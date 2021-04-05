@@ -18,7 +18,7 @@ type TokenType =
   | 'and'
   | 'in'
   | 'num'
-  | 'var'
+  | 'token'
   | 'string'
 
 interface MultiOp {
@@ -97,7 +97,7 @@ class Tokenize {
     } else if (numbers.has(letter)) {
       return this._number(letter)
     } else if (/[a-zA-Z]/.test(letter)) {
-      return this._variable(letter)
+      return this._token(letter)
     } else if (letter == '"' || letter == "'") {
       return this._string(letter)
     } else {
@@ -117,15 +117,15 @@ class Tokenize {
     }
   }
 
-  _variable(letter: string): Token {
+  _token(letter: string): Token {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
-      if (!/[a-zA-Z_]/.test(new_letter)) {
+      if (!new_letter || !/[a-zA-Z_]/.test(new_letter)) {
         if (keywords.has(value as any)) {
           return {type: value as TokenType}
         } else {
-          return {type: 'var', value}
+          return {type: 'token', value}
         }
       }
       value += new_letter
@@ -143,8 +143,8 @@ class Tokenize {
       new_letter = this.exp[this.index]
       if (!new_letter) {
         throw Error(
-            `string ${JSON.stringify(value)} started at position ${start_pos}, 
-            but not closed by end of expression`
+          `string ${JSON.stringify(value)} started at position ${start_pos}, 
+            but not closed by end of expression`,
         )
       }
       if (!escape && new_letter == letter) {
