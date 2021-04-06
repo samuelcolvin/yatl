@@ -1,5 +1,5 @@
 import type {Token} from '../src/tokenize'
-import {build_groups, build_chains, build_functions, MixedElement} from '../src/expressions'
+import {build_groups, build_chains, build_functions, build_expression, MixedElement} from '../src/expressions'
 import * as utils from './utils'
 import each from 'jest-each'
 
@@ -48,14 +48,7 @@ describe('build_groups', () => {
       {
         type: 'group',
         subtype: '()',
-        args: [
-          [
-            {
-              type: 'id',
-              value: 'abc',
-            },
-          ],
-        ],
+        args: [[{type: 'id', value: 'abc'}]],
       },
     ])
   })
@@ -107,19 +100,7 @@ const expected_chains: [any[], any][] = [
 describe('build_chains', () => {
   test('simple-chain', () => {
     const tokens: Token[] = [{type: 'id', value: 'abc'}, {type: '.'}, {type: 'id', value: 'x'}]
-    expect(build_chains(tokens)).toEqual([
-      {
-        type: 'var',
-        id: 'abc',
-        chain: [
-          {
-            op: '.',
-            lookup: 'x',
-            type: 'string',
-          },
-        ],
-      },
-    ])
+    expect(build_chains(tokens)).toEqual([{type: 'var', id: 'abc', chain: [{op: '.', lookup: 'x', type: 'string'}]}])
   })
 
   each(expected_chains).test('expected_chains', (tokens_compact, expected_compact) => {
@@ -140,21 +121,25 @@ describe('build_functions', () => {
     expect(build_functions(tokens)).toEqual([
       {
         type: 'func',
-        var: {
-          type: 'var',
-          id: 'abc',
-          chain: [],
-        },
-        args: [
-          [
-            {
-              type: 'id',
-              value: 'x',
-            },
-          ],
-        ],
+        var: {type: 'var', id: 'abc', chain: []},
+        args: [[{type: 'id', value: 'x'}]],
       },
     ])
   })
   // TODO parameterised tests for build_functions
+})
+
+describe('build_expression', () => {
+  test('simple_add', () => {
+    const tokens: Token[] = ['string:foobar', '+', 'num:123'].map(utils.compact_as_token)
+    // console.log(JSON.stringify(build_expression(tokens), null, 2))
+    expect(build_expression(tokens)).toEqual({
+      type: 'operator',
+      operator: '+',
+      args: [
+        {type: 'string', value: 'foobar'},
+        {type: 'num', value: 123},
+      ],
+    })
+  })
 })

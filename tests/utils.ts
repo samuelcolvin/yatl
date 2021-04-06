@@ -27,6 +27,10 @@ export function mixed_as_compact(g: MixedElement): string | Record<string, any> 
     }
   } else if (g.type == 'func') {
     return {[`func:${g.var.id}`]: g.args.map(a => a.map(mixed_as_compact))}
+  } else if (g.type == 'mod') {
+    return {[`mod[:${g.mod}`]: mixed_as_compact(g.element)}
+  } else if (g.type == 'operator') {
+    return {[`op:${g.operator}`]: g.args.map(mixed_as_compact)}
   } else {
     return token_as_compact(g)
   }
