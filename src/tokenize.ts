@@ -18,7 +18,7 @@ export type TokenType =
   | '.?'
   | 'in'
   | 'num'
-  | 'token'
+  | 'id'
   | 'string'
 
 const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])
@@ -122,7 +122,7 @@ class Tokenize {
         if (keyword_type) {
           return {type: keyword_type}
         } else {
-          return {type: 'token', value}
+          return {type: 'id', value}
         }
       }
       value += new_letter

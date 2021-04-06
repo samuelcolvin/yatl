@@ -84,12 +84,12 @@ export function build_groups(tokens: Token[]): (Token | Group)[] {
 
 interface ChainElement {
   lookup: string
-  type: 'string' | 'token'
+  type: 'string' | 'id'
   op: '.' | '.?'
 }
 interface Var {
   type: 'var'
-  token: string
+  id: string
   chain: ChainElement[]
 }
 
@@ -97,7 +97,7 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
   const new_groups: (Token | Group | Var)[] = []
   for (let index = 0; index < groups.length; index++) {
     const g = groups[index]
-    if (g.type == 'token') {
+    if (g.type == 'id') {
       const chain: ChainElement[] = []
       while (true) {
         const next = groups[index + 1]
@@ -106,7 +106,7 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
           const op = next.type as '.' | '.?'
           if (lookup && lookup.type == 'group' && lookup.subtype == '[]') {
             chain.push(chain_from_brackets(lookup, op))
-          } else if (lookup.type == 'token') {
+          } else if (lookup.type == 'id') {
             // type here is string since we use the raw item, rather than considering it as a variable
             chain.push({op, lookup: lookup.value as string, type: 'string'})
           } else if (!lookup) {
@@ -123,7 +123,7 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
         }
       }
 
-      new_groups.push({type: 'var', token: g.value as string, chain})
+      new_groups.push({type: 'var', id: g.value as string, chain})
     } else if (g.type == 'group') {
       if (g.subtype == '[]') {
         throw Error('square brackets [] can only be used after a token')
@@ -147,7 +147,7 @@ function chain_from_brackets(g: Group, op: '.' | '.?'): ChainElement {
     throw Error('A single token or string must be used as the input to square brackets')
   }
   const arg = g.args[0][0]
-  if (arg.type != 'token' && arg.type != 'string') {
+  if (arg.type != 'id' && arg.type != 'string') {
     throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
   }
   return {op, lookup: arg.value as string, type: arg.type}

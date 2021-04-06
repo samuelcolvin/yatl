@@ -21,10 +21,12 @@ export function mixed_as_compact(g: MixedElement): string | Record<string, any> 
     return {[g.subtype]: g.args.map(a => a.map(mixed_as_compact))}
   } else if (g.type == 'var') {
     if (g.chain.length) {
-      return {[`var:${g.token}`]: g.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
+      return {[`var:${g.id}`]: g.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
     } else {
-      return `var:${g.token}`
+      return `var:${g.id}`
     }
+  } else if (g.type == 'func') {
+    return {[`func:${g.var.id}`]: g.args.map(a => a.map(mixed_as_compact))}
   } else {
     return token_as_compact(g)
   }
@@ -35,7 +37,7 @@ export function compact_as_mixed(s: string | Record<string, any>): MixedElement 
     if (s.startsWith('var:')) {
       return {
         type: 'var',
-        token: s.substr(4),
+        id: s.substr(4),
         chain: [],
       }
     } else {
@@ -63,7 +65,7 @@ export function compact_as_mixed(s: string | Record<string, any>): MixedElement 
             }
             let type = 'string'
             if (lookup.startsWith('[')) {
-              type = 'token'
+              type = 'id'
               lookup = lookup.substr(1, lookup.length - 2)
             }
             return {op, type, lookup}
@@ -71,7 +73,7 @@ export function compact_as_mixed(s: string | Record<string, any>): MixedElement 
       }
       return {
         type: 'var',
-        token: key.split(':', 2)[1],
+        id: key.split(':', 2)[1],
         chain,
       }
     }
