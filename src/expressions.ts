@@ -15,12 +15,12 @@ import {Token, TokenType} from './tokenize'
  */
 
 type GroupType = '()' | '[]'
-export type MixedElement = Token | Group | Var
+export type MixedElement = Token | Group | Var | Func
 
 export interface Group {
   type: 'group'
   subtype: GroupType
-  members: MixedElement[]
+  args: MixedElement[][]
 }
 
 const groupings: Partial<Record<TokenType, {close: TokenType; type: GroupType}>> = {
@@ -34,7 +34,8 @@ export function build_groups(tokens: Token[]): (Token | Group)[] {
   let close: TokenType | null = null
   const members: (Token | Group)[] = []
   let current_group_type: GroupType | null = null
-  let current_group_members: Token[] = []
+  let current_group_args: (Token | Group)[][] = []
+  let current_arg: Token[] = []
   for (const token of tokens) {
     if (depth == 0) {
       const g = groupings[token.type]
@@ -49,21 +50,29 @@ export function build_groups(tokens: Token[]): (Token | Group)[] {
     } else {
       if (token.type == open) {
         depth++
-        current_group_members.push(token)
+        current_arg.push(token)
       } else if (token.type == close) {
         depth--
         if (depth == 0) {
+          // TODO (maybe) here and below, if build_groups(current_arg) contains only one () group, escape it
+          current_group_args.push(build_groups(current_arg))
           members.push({
             type: 'group',
             subtype: current_group_type as GroupType,
-            members: build_groups(current_group_members),
+            args: current_group_args,
           })
-          current_group_members = []
+          current_group_args = []
+          current_arg = []
         } else {
-          current_group_members.push(token)
+          current_arg.push(token)
         }
       } else {
-        current_group_members.push(token)
+        if (depth == 1 && token.type == ',') {
+          current_group_args.push(build_groups(current_arg))
+          current_arg = []
+        } else {
+          current_arg.push(token)
+        }
       }
     }
   }
@@ -84,20 +93,6 @@ interface Var {
   chain: ChainElement[]
 }
 
-const is_chain_op = (g: Token | Group | undefined): boolean => !!g && (g.type == '.' || g.type == '.?')
-const is_square_group = (g: Token | Group | undefined): boolean => !!g && g.type == 'group' && g.subtype == '[]'
-
-function chain_from_brackets(g: Group, op: '.' | '.?' = '.'): ChainElement {
-  if (g.members.length != 1) {
-    throw Error('A single token or string must be used as the input to square brackets')
-  }
-  const arg = g.members[0]
-  if (arg.type != 'token' && arg.type != 'string') {
-    throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
-  }
-  return {op, lookup: arg.value as string, type: arg.type}
-}
-
 export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[] {
   const new_groups: (Token | Group | Var)[] = []
   for (let index = 0; index < groups.length; index++) {
@@ -109,8 +104,8 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
         if (is_chain_op(next)) {
           const lookup = groups[index + 2]
           const op = next.type as '.' | '.?'
-          if (is_square_group(lookup)) {
-            chain.push(chain_from_brackets(lookup as Group, op))
+          if (lookup && lookup.type == 'group' && lookup.subtype == '[]') {
+            chain.push(chain_from_brackets(lookup, op))
           } else if (lookup.type == 'token') {
             // type here is string since we use the raw item, rather than considering it as a variable
             chain.push({op, lookup: lookup.value as string, type: 'string'})
@@ -120,8 +115,8 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
             throw Error('"." and ".?" are only valid between tokens')
           }
           index += 2
-        } else if (is_square_group(next)) {
-          chain.push(chain_from_brackets(next as Group))
+        } else if (next && next.type == 'group' && next.subtype == '[]') {
+          chain.push(chain_from_brackets(next, '.'))
           index += 1
         } else {
           break
@@ -133,12 +128,53 @@ export function build_chains(groups: (Token | Group)[]): (Token | Group | Var)[]
       if (g.subtype == '[]') {
         throw Error('square brackets [] can only be used after a token')
       } else {
-        new_groups.push({...g, members: build_chains(g.members as (Token | Group)[])})
+        new_groups.push({...g, args: g.args.map(a => build_chains(a as (Token | Group)[]))})
       }
     } else if (is_chain_op(g)) {
       throw Error('"." and ".?" are only valid between tokens')
     } else {
       // normal token
+      new_groups.push(g)
+    }
+  }
+  return new_groups
+}
+
+const is_chain_op = (g: Token | Group | undefined): boolean => !!g && (g.type == '.' || g.type == '.?')
+
+function chain_from_brackets(g: Group, op: '.' | '.?'): ChainElement {
+  if (g.args.length != 1 || g.args[0].length != 1) {
+    throw Error('A single token or string must be used as the input to square brackets')
+  }
+  const arg = g.args[0][0]
+  if (arg.type != 'token' && arg.type != 'string') {
+    throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
+  }
+  return {op, lookup: arg.value as string, type: arg.type}
+}
+
+interface Func {
+  type: 'func'
+  var: Var
+  args: MixedElement[][]
+}
+
+export function build_functions(groups: MixedElement[]): (Token | Group | Var | Func)[] {
+  const new_groups: (Token | Group | Var | Func)[] = []
+  for (let index = 0; index < groups.length; index++) {
+    const g = groups[index]
+    if (g.type == 'var') {
+      const next = groups[index + 1]
+      if (next && next.type == 'group' && next.subtype == '()') {
+        new_groups.push({type: 'func', var: g, args: next.args})
+        index++
+        continue
+      }
+    }
+
+    if (g.type == 'group') {
+      new_groups.push({...g, args: g.args.map(build_functions)})
+    } else {
       new_groups.push(g)
     }
   }

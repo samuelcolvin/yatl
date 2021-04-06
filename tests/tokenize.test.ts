@@ -27,7 +27,7 @@ const expected_tokens: [string, string[]][] = [
 
 describe('tokenize', () => {
   test('simple equals expression', () => {
-    const tokens: Token[] = [{type: 'token', value: 'abc'}, {type: '=='}, {type: 'num', value: '1'}]
+    const tokens: Token[] = [{type: 'token', value: 'abc'}, {type: '=='}, {type: 'num', value: 1}]
     expect(tokenize('abc == 1')).toEqual(tokens)
     expect(tokenize('abc==1')).toEqual(tokens)
   })

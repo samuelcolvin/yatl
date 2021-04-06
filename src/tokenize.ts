@@ -1,5 +1,3 @@
-const numbers = new Set('1234567890')
-
 export type TokenType =
   | '('
   | ')'
@@ -35,8 +33,10 @@ const keywords: Record<string, TokenType> = {
 
 export interface Token {
   type: TokenType
-  value?: string
+  value?: string | number
 }
+
+const numbers = new Set('1234567890')
 
 class Tokenize {
   exp: string
@@ -91,11 +91,25 @@ class Tokenize {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
-      if (!numbers.has(new_letter)) {
-        return {type: 'num', value}
+      if (new_letter == '_') {
+        // allow underscores but ignore them
+        this.index++
+      } else if (numbers.has(new_letter)) {
+        value += new_letter
+        this.index++
+      } else if (new_letter == '.') {
+        if (value.includes('.')) {
+          throw Error('numbers may not contain more than one dot')
+        }
+        if (!numbers.has(this.exp[this.index + 2])) {
+          throw Error('numbers may not end with a dot')
+        }
+        value += new_letter
+        this.index++
+      } else {
+        // the number has ended, return it
+        return {type: 'num', value: parseFloat(value)}
       }
-      value += new_letter
-      this.index++
     }
   }
 

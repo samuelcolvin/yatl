@@ -1,12 +1,16 @@
 import type {Token, TokenType} from '../src/tokenize'
 import type {MixedElement} from '../src/expressions'
 
-export const token_as_compact = (t: Token): string => (typeof t.value == 'string' ? `${t.type}:${t.value}` : t.type)
+export const token_as_compact = (t: Token): string => (typeof t.value != 'undefined' ? `${t.type}:${t.value}` : t.type)
 
 export function compact_as_token(s: string): Token {
   if (s.includes(':')) {
     const [type, value] = s.split(':', 2)
-    return {type: type as TokenType, value}
+    if (type == 'num') {
+      return {type: type, value: parseFloat(value)}
+    } else {
+      return {type: type as TokenType, value}
+    }
   } else {
     return {type: s as TokenType}
   }
@@ -14,7 +18,7 @@ export function compact_as_token(s: string): Token {
 
 export function mixed_as_compact(g: MixedElement): string | Record<string, any> {
   if (g.type == 'group') {
-    return {[g.subtype]: g.members.map(mixed_as_compact)}
+    return {[g.subtype]: g.args.map(a => a.map(mixed_as_compact))}
   } else if (g.type == 'var') {
     if (g.chain.length) {
       return {[`var:${g.token}`]: g.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
@@ -43,7 +47,7 @@ export function compact_as_mixed(s: string | Record<string, any>): MixedElement 
       return {
         type: 'group',
         subtype: key,
-        members: value.map(compact_as_mixed),
+        args: value.map((a: string[]) => a.map(compact_as_mixed)),
       }
     } else {
       let chain = []
