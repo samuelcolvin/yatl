@@ -1,4 +1,4 @@
-import {tokenize} from '../src/expressions'
+import tokenize from '../src/tokenize'
 
 describe('tokenize', () => {
   it('string', () => {

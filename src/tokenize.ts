@@ -155,4 +155,4 @@ class Tokenize {
   }
 }
 
-export const tokenize = (exp: string): Token[] => new Tokenize(exp).tokenize()
+export default (exp: string): Token[] => new Tokenize(exp).tokenize()
