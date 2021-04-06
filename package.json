@@ -12,13 +12,13 @@
   "scripts": {
     "build": "tsc",
     "test": "jest --config jestconfig.json",
-    "test-watch": "jest --config jestconfig.json --watch",
     "experiment": "ts-node --project tsconfig.json ./src/index.ts",
     "format": "prettier --write 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
     "lint": "eslint --max-warnings=0 src && prettier --check 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'"
   },
   "dependencies": {
     "esprima": "^4.0.1",
+    "jest-each": "^26.6.2",
     "saxes": "^5.0.1"
   },
   "devDependencies": {

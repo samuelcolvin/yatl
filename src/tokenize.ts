@@ -1,17 +1,19 @@
 const numbers = new Set('1234567890')
 
-type TokenType =
+export type TokenType =
   | 'add'
   | 'sub'
   | 'dev'
   | 'mult'
   | 'pipe'
   | 'not'
-  | 'open'
-  | 'close'
+  | 'b-open'
+  | 'b-close'
+  | 's-open'
+  | 's-close'
   | 'comma'
   | 'chain'
-  | 'op-chain'
+  | 'chain-op'
   | 'equals'
   | 'not-equals'
   | 'or'
@@ -23,20 +25,22 @@ type TokenType =
 
 interface MultiOp {
   letter: string
-  peek: string
+  next: string
   type: TokenType
 }
 const multi_ops: MultiOp[] = [
-  {letter: '=', peek: '=', type: 'equals'},
-  {letter: '=', peek: '!', type: 'not-equals'},
-  {letter: '|', peek: '|', type: 'or'},
-  {letter: '&', peek: '&', type: 'and'},
-  {letter: '.', peek: '?', type: 'op-chain'},
+  {letter: '=', next: '=', type: 'equals'},
+  {letter: '=', next: '!', type: 'not-equals'},
+  {letter: '|', next: '|', type: 'or'},
+  {letter: '&', next: '&', type: 'and'},
+  {letter: '.', next: '?', type: 'chain-op'},
 ]
 
 const single_ops: Record<string, TokenType> = {
-  '(': 'open',
-  ')': 'close',
+  '(': 'b-open',
+  ')': 'b-close',
+  '[': 's-open',
+  ']': 's-close',
   ',': 'comma',
   '.': 'chain',
   '+': 'add',
@@ -48,7 +52,7 @@ const single_ops: Record<string, TokenType> = {
 }
 const keywords: Set<TokenType> = new Set(['in', 'or', 'and', 'not'])
 
-interface Token {
+export interface Token {
   type: TokenType
   value?: string
 }
@@ -80,12 +84,12 @@ class Tokenize {
     if (/\s/.test(letter)) {
       return
     }
-    const peek = this.exp[this.index + 1]
-    // console.log(`index=${this.index} letter=${JSON.stringify(letter)} peek=${JSON.stringify(peek)}`)
+    const next = this.exp[this.index + 1]
+    // console.log(`index=${this.index} letter=${JSON.stringify(letter)} next=${JSON.stringify(next)}`)
 
     // multi_ops have to come first has some of their first characters match single_ops
     for (const multi_op of multi_ops) {
-      if (letter == multi_op.letter && peek == multi_op.peek) {
+      if (letter == multi_op.letter && next == multi_op.next) {
         this.index++
         return {type: multi_op.type}
       }
