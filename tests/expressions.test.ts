@@ -1,5 +1,5 @@
 import type {Token} from '../src/tokenize'
-import {build_groups, Group} from '../src/expressions'
+import {build_groups, build_chains} from '../src/expressions'
 import * as utils from './utils'
 import each from 'jest-each'
 
@@ -26,7 +26,8 @@ describe('build_groups', () => {
     const tokens: Token[] = [{type: '('}, {type: 'token', value: 'abc'}, {type: ')'}]
     expect(build_groups(tokens)).toEqual([
       {
-        type: '()',
+        type: 'group',
+        subtype: '()',
         members: [
           {
             type: 'token',
@@ -40,19 +41,70 @@ describe('build_groups', () => {
   test('recursive', () => {
     const tokens: Token[] = ['(', '(', 'token:foobar', ')', ')'].map(utils.compact_as_token)
     expect(build_groups(tokens)).toEqual([
-      {type: '()', members: [{type: '()', members: [{type: 'token', value: 'foobar'}]}]},
+      {
+        type: 'group',
+        subtype: '()',
+        members: [{type: 'group', subtype: '()', members: [{type: 'token', value: 'foobar'}]}],
+      },
     ])
   })
 
   each(expected_groups).test('expected_groups', (tokens_compact, expected_compact) => {
     const tokens: Token[] = tokens_compact.map(utils.compact_as_token)
-    const expected: Group = expected_compact.map(utils.compact_as_group)
+    const expected = expected_compact.map(utils.compact_as_mixed)
     expect(build_groups(tokens)).toStrictEqual(expected)
   })
 
   // test('create expected_groups', () => {
   //   const tokens: [string[], Token[]][] = expected_groups.map(g => [g[0], g[0].map(utils.compact_as_token)])
-  //   const new_expected_groups = tokens.map(([g, t]) => [g, build_groups(t).map(utils.group_as_compact)])
+  //   const new_expected_groups = tokens.map(([g, t]) => [g, build_groups(t).map(utils.mixed_as_compact)])
   //   console.log(`const expected_groups: [string[], any][] = ${JSON.stringify(new_expected_groups)}`)
   // })
+})
+
+const expected_chains: [any[], any][] = [
+  [['token:foo'], ['var:foo']],
+  [
+    ['token:foo', 'num:1'],
+    ['var:foo', 'num:1'],
+  ],
+  [
+    ['token:foo', '.', 'token:bar', 'num:1'],
+    [{'var:foo': '.bar'}, 'num:1'],
+  ],
+  [['token:foo', '.', 'token:bar', '.?', 'token:spam'], [{'var:foo': '.bar.?spam'}]],
+  [['token:foo', {'[]': ['token:other']}], [{'var:foo': '.[other]'}]],
+  [['token:foo', {'[]': ['string:foobar']}], [{'var:foo': '.foobar'}]],
+  [['token:foo', '.', 'token:bar', {'[]': ['token:other']}], [{'var:foo': '.bar.[other]'}]],
+  [['token:foo', '.', {'[]': ['token:other']}], [{'var:foo': '.[other]'}]],
+  [['token:foo', '.?', {'[]': ['token:other']}], [{'var:foo': '.?[other]'}]],
+  [[{'()': ['token:foobar']}], [{'()': ['var:foobar']}]],
+  [[{'()': ['num:123']}], [{'()': ['num:123']}]],
+]
+
+describe('build_chains', () => {
+  test('simple chain', () => {
+    const tokens: Token[] = [{type: 'token', value: 'abc'}, {type: '.'}, {type: 'token', value: 'x'}]
+    expect(build_chains(tokens)).toEqual([
+      {
+        type: 'var',
+        token: 'abc',
+        chain: [
+          {
+            op: '.',
+            lookup: 'x',
+            type: 'string',
+          },
+        ],
+      },
+    ])
+  })
+
+  each(expected_chains).test('expected_chains', (tokens_compact, expected_compact) => {
+    const tokens: Token[] = tokens_compact.map(utils.compact_as_mixed)
+    const expected = expected_compact.map(utils.compact_as_mixed)
+    // console.log('got %o', build_chains(tokens))
+    // console.log('expected %o', expected)
+    expect(build_chains(tokens)).toStrictEqual(expected)
+  })
 })
