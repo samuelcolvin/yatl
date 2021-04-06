@@ -5,33 +5,28 @@ import each from 'jest-each'
 
 const expected_groups: [string[], any][] = [
   [['string:foobar'], ['string:foobar']],
-  [['b-open', 'token:foobar', 'b-close'], [{brackets: ['token:foobar']}]],
-  [['b-open', 'token:foobar', 'in', 'token:other', 'b-close'], [{brackets: ['token:foobar', 'in', 'token:other']}]],
+  [['(', 'token:foobar', ')'], [{'()': ['token:foobar']}]],
+  [['(', 'token:foobar', '+', 'num:123', ')'], [{'()': ['token:foobar', '+', 'num:123']}]],
+  [['(', 'token:foobar', 'in', 'token:other', ')'], [{'()': ['token:foobar', 'in', 'token:other']}]],
   [
-    ['token:foobar', 's-open', 's-close'],
-    ['token:foobar', {square: []}],
+    ['token:foobar', '[', ']'],
+    ['token:foobar', {'[]': []}],
   ],
   [
-    ['token:foobar', 's-open', 'token:other', 's-close'],
-    ['token:foobar', {square: ['token:other']}],
+    ['token:foobar', '[', 'token:other', ']'],
+    ['token:foobar', {'[]': ['token:other']}],
   ],
-  [['b-open', 'b-open', 'token:foobar', 'b-close', 'b-close'], [{brackets: [{brackets: ['token:foobar']}]}]],
-  [
-    ['b-open', 'token:foobar', 'b-open', 'token:foobar', 'b-close', 'b-close'],
-    [{brackets: ['token:foobar', {brackets: ['token:foobar']}]}],
-  ],
-  [
-    ['b-open', 'b-open', 'token:foobar', 'b-close', 'token:foobar', 'b-close'],
-    [{brackets: [{brackets: ['token:foobar']}, 'token:foobar']}],
-  ],
+  [['(', '(', 'token:foobar', ')', ')'], [{'()': [{'()': ['token:foobar']}]}]],
+  [['(', 'token:foobar', '(', 'token:foobar', ')', ')'], [{'()': ['token:foobar', {'()': ['token:foobar']}]}]],
+  [['(', '(', 'token:foobar', ')', 'token:foobar', ')'], [{'()': [{'()': ['token:foobar']}, 'token:foobar']}]],
 ]
 
 describe('build_groups', () => {
   test('simple group', () => {
-    const tokens: Token[] = [{type: 'b-open'}, {type: 'token', value: 'abc'}, {type: 'b-close'}]
+    const tokens: Token[] = [{type: '('}, {type: 'token', value: 'abc'}, {type: ')'}]
     expect(build_groups(tokens)).toEqual([
       {
-        type: 'brackets',
+        type: '()',
         members: [
           {
             type: 'token',
@@ -43,9 +38,9 @@ describe('build_groups', () => {
   })
 
   test('recursive', () => {
-    const tokens: Token[] = ['b-open', 'b-open', 'token:foobar', 'b-close', 'b-close'].map(utils.compact_as_token)
+    const tokens: Token[] = ['(', '(', 'token:foobar', ')', ')'].map(utils.compact_as_token)
     expect(build_groups(tokens)).toEqual([
-      {type: 'brackets', members: [{type: 'brackets', members: [{type: 'token', value: 'foobar'}]}]},
+      {type: '()', members: [{type: '()', members: [{type: 'token', value: 'foobar'}]}]},
     ])
   })
 

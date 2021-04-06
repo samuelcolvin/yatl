@@ -1,6 +1,6 @@
 import tokenize, {Token, TokenType} from './tokenize'
 
-type GroupType = 'brackets' | 'square'
+type GroupType = '()' | '[]'
 export type Groups = (Token | Group)[]
 export interface Group {
   type: GroupType
@@ -8,8 +8,8 @@ export interface Group {
 }
 
 const groupings: Partial<Record<TokenType, {close: TokenType; type: GroupType}>> = {
-  'b-open': {close: 'b-close', type: 'brackets'},
-  's-open': {close: 's-close', type: 'square'},
+  '(': {close: ')', type: '()'},
+  '[': {close: ']', type: '[]'},
 }
 
 export function build_groups(tokens: Token[]): Groups {
@@ -57,22 +57,7 @@ export function build_groups(tokens: Token[]): Groups {
 }
 
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
-const operators: TokenType[] = [
-  'chain',
-  'chain-op',
-  'pipe',
-  'mult',
-  'dev',
-  'add',
-  'sub',
-  'equals',
-  'not-equals',
-  'in',
-  'not',
-  'and',
-  'or',
-  'comma',
-]
+const operators: TokenType[] = ['.', '.?', '|', '*', '/', '+', '-', '==', '!=', 'in', '!', '&&', '||', ',']
 
 const things: Set<TokenType> = new Set(['num', 'token', 'string'])
 

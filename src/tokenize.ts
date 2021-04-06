@@ -1,56 +1,37 @@
 const numbers = new Set('1234567890')
 
 export type TokenType =
-  | 'add'
-  | 'sub'
-  | 'dev'
-  | 'mult'
-  | 'pipe'
-  | 'not'
-  | 'b-open'
-  | 'b-close'
-  | 's-open'
-  | 's-close'
-  | 'comma'
-  | 'chain'
-  | 'chain-op'
-  | 'equals'
-  | 'not-equals'
-  | 'or'
-  | 'and'
+  | '('
+  | ')'
+  | '['
+  | ']'
+  | ','
+  | '.'
+  | '+'
+  | '-'
+  | '/'
+  | '*'
+  | '|'
+  | '!'
+  | '=='
+  | '!='
+  | '||'
+  | '&&'
+  | '.?'
   | 'in'
   | 'num'
   | 'token'
   | 'string'
 
-interface MultiOp {
-  letter: string
-  next: string
-  type: TokenType
-}
-const multi_ops: MultiOp[] = [
-  {letter: '=', next: '=', type: 'equals'},
-  {letter: '=', next: '!', type: 'not-equals'},
-  {letter: '|', next: '|', type: 'or'},
-  {letter: '&', next: '&', type: 'and'},
-  {letter: '.', next: '?', type: 'chain-op'},
-]
+const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])
 
-const single_ops: Record<string, TokenType> = {
-  '(': 'b-open',
-  ')': 'b-close',
-  '[': 's-open',
-  ']': 's-close',
-  ',': 'comma',
-  '.': 'chain',
-  '+': 'add',
-  '-': 'sub',
-  '/': 'dev',
-  '*': 'mult',
-  '|': 'pipe',
-  '!': 'not',
+const single_ops: Set<TokenType> = new Set(['(', ')', '[', ']', ',', '.', '+', '-', '/', '*', '|', '!'])
+const keywords: Record<string, TokenType> = {
+  in: 'in',
+  or: '||',
+  and: '&&',
+  not: '!',
 }
-const keywords: Set<TokenType> = new Set(['in', 'or', 'and', 'not'])
 
 export interface Token {
   type: TokenType
@@ -84,20 +65,17 @@ class Tokenize {
     if (/\s/.test(letter)) {
       return
     }
-    const next = this.exp[this.index + 1]
+    const two_letters = (letter + this.exp[this.index + 1]) as TokenType
     // console.log(`index=${this.index} letter=${JSON.stringify(letter)} next=${JSON.stringify(next)}`)
 
     // multi_ops have to come first has some of their first characters match single_ops
-    for (const multi_op of multi_ops) {
-      if (letter == multi_op.letter && next == multi_op.next) {
-        this.index++
-        return {type: multi_op.type}
-      }
+    if (multi_ops.has(two_letters)) {
+      this.index++
+      return {type: two_letters}
     }
 
-    const op = single_ops[letter]
-    if (op) {
-      return {type: op}
+    if (single_ops.has(letter as TokenType)) {
+      return {type: letter as TokenType}
     } else if (numbers.has(letter)) {
       return this._number(letter)
     } else if (/[a-zA-Z]/.test(letter)) {
@@ -126,8 +104,9 @@ class Tokenize {
     while (true) {
       const new_letter = this.exp[this.index + 1]
       if (!new_letter || !/[a-zA-Z_]/.test(new_letter)) {
-        if (keywords.has(value as any)) {
-          return {type: value as TokenType}
+        const keyword_type = keywords[value]
+        if (keyword_type) {
+          return {type: keyword_type}
         } else {
           return {type: 'token', value}
         }
