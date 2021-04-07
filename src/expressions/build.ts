@@ -86,8 +86,8 @@ export function build_groups(tokens: Token[]): (Token | TempGroup)[] {
   return members
 }
 
-interface ChainElement {
-  lookup: string
+export interface ChainElement {
+  lookup: string | number
   type: 'str' | 'symbol' | 'num'
   op: '.' | '.?'
 }
@@ -188,7 +188,7 @@ export function build_functions(groups: MixedElement[]): (Token | TempGroup | Va
 
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
 const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
-export type OperatorType = typeof operator_precedence[number];
+export type OperatorType = typeof operator_precedence[number]
 const operator_set: Set<OperatorType> = new Set(operator_precedence)
 
 export interface TempModified {
@@ -269,7 +269,7 @@ interface List {
   type: 'list'
   elements: Clause[]
 }
-interface Func {
+export interface Func {
   type: 'func'
   var: Var
   args: Clause[]

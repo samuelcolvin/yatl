@@ -21,7 +21,7 @@ const token_types = [
   'symbol',
   'str',
 ] as const
-export type TokenType = typeof token_types[number];
+export type TokenType = typeof token_types[number]
 export const token_set: Set<TokenType> = new Set(token_types)
 
 const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])

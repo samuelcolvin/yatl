@@ -104,9 +104,7 @@ const expected_chains: [any[], any][] = [
 describe('build_chains', () => {
   test('simple-chain', () => {
     const tokens: Token[] = [{type: 'symbol', value: 'abc'}, {type: '.'}, {type: 'symbol', value: 'x'}]
-    expect(build_chains(tokens)).toEqual([
-      {type: 'var', symbol: 'abc', chain: [{op: '.', lookup: 'x', type: 'str'}]},
-    ])
+    expect(build_chains(tokens)).toEqual([{type: 'var', symbol: 'abc', chain: [{op: '.', lookup: 'x', type: 'str'}]}])
   })
 
   each(expected_chains).test('expected_chains %j', (tokens_compact, expected_compact) => {
