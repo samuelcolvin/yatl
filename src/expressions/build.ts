@@ -15,7 +15,7 @@ import {Token, TokenType} from './tokenize'
  */
 
 type GroupSubtype = '()' | '[]'
-export type MixedElement = Token | TempGroup | Var | TempFunc
+export type MixedElement = Token | TempGroup | Var | TempFunc | TempModified | TempOperation
 
 export interface TempGroup {
   type: 'group'
@@ -186,46 +186,45 @@ export function build_functions(groups: MixedElement[]): (Token | TempGroup | Va
   return new_groups
 }
 
-type OperatorTypes = '|' | '*' | '/' | '+' | '-' | '==' | '!=' | 'in' | '&&' | '||'
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
+export type OperatorTypes = '|' | '*' | '/' | '+' | '-' | '==' | '!=' | 'in' | '&&' | '||'
 const operator_precedence: OperatorTypes[] = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||']
 
-interface Modified {
+export interface TempModified {
   type: 'mod'
   mod: '!' | '-'
-  element: Clause
+  element: MixedElement
 }
 
-interface Operation {
+export interface TempOperation {
   type: 'operator'
   operator: OperatorTypes
-  args: Clause[]
+  args: MixedElement[]
 }
 
-export function build_operators(groups: MixedElement[]): Clause {
-  let tmp_groups: (MixedElement | Clause)[] = groups
-  // og('original groups:', groups)
+export function build_operations(groups: MixedElement[]): MixedElement[] {
+  let tmp_groups: MixedElement[] = groups
   for (const operator_type of operator_precedence) {
-    const new_groups: (MixedElement | Clause)[] = []
+    const new_groups: MixedElement[] = []
     for (let index = 0; index < tmp_groups.length; index++) {
       const g = tmp_groups[index]
-      const args: Clause[] = []
+      const args: MixedElement[] = []
       while (index < tmp_groups.length - 1 && tmp_groups[index + 1].type == operator_type) {
-        const arg = tmp_groups[index + 2] as MixedElement
+        const arg = tmp_groups[index + 2]
         if (!arg) {
           throw Error(`expression ended unexpectedly with operator "${operator_type}"`)
         }
         if (arg.type == '!' || arg.type == '-') {
-          const element = tmp_groups[index + 3] as MixedElement
+          const element = tmp_groups[index + 3]
           if (!element) {
             throw Error(`expression ended unexpectedly with modifier "${operator_type}"`)
           }
           index += 3
-          args.push({type: 'mod', mod: arg.type, element: mixed_as_clause(element)})
+          args.push({type: 'mod', mod: arg.type, element: apple_build_operations(element)})
         } else if (operator_precedence.includes(arg.type as any)) {
           throw Error(`operator "${operator_type}" followed by another operator "${arg.type}`)
         } else {
-          args.push(mixed_as_clause(arg))
+          args.push(arg)
           index += 2
         }
       }
@@ -234,13 +233,10 @@ export function build_operators(groups: MixedElement[]): Clause {
         if (operator_type == 'in' && args.length > 1) {
           throw Error('chaining the "in" operator is not permitted')
         }
-        const a1 = mixed_as_clause(g as MixedElement)
-        new_groups.push({type: 'operator', operator: operator_type, args: [a1, ...args]})
-      } else if (operator_precedence.includes(g.type as any)) {
-        // operator still to be processed
-        new_groups.push(g)
+        new_groups.push({type: 'operator', operator: operator_type, args: [g, ...args].map(apple_build_operations)})
       } else {
-        new_groups.push(mixed_as_clause(g))
+        // operator still to be processed
+        new_groups.push(apple_build_operations(g))
       }
     }
     tmp_groups = new_groups
@@ -248,65 +244,80 @@ export function build_operators(groups: MixedElement[]): Clause {
   if (tmp_groups.length != 1) {
     throw Error(`internal error, ${tmp_groups.length} clauses found after reduction, should be just 1`)
   }
-  return tmp_groups[0] as Clause
+  return tmp_groups
 }
 
-function mixed_as_clause(g: MixedElement | Clause): Clause {
+// MixedElement = Token | TempGroup | Var | TempFunc | TempModified | TempOperation
+function apple_build_operations(g: MixedElement): MixedElement {
+  if (g.type == 'group' || g.type == 'func') {
+    return {...g, args: g.args.map(build_operations)}
+  } else {
+    return g
+  }
+}
+
+interface Str {
+  type: 'str'
+  value: string
+}
+interface Num {
+  type: 'num'
+  value: number
+}
+interface List {
+  type: 'list'
+  elements: Clause[]
+}
+interface Func {
+  type: 'func'
+  var: Var
+  args: Clause[]
+}
+export interface Modified {
+  type: 'mod'
+  mod: '!' | '-'
+  element: Clause
+}
+export interface Operation {
+  type: 'operator'
+  operator: OperatorTypes
+  args: Clause[]
+}
+
+export type Clause = Var | Str | Num | List | Func | Modified | Operation
+
+function mixed_as_clause(g: MixedElement): Clause {
   switch (g.type) {
     case 'group':
       if (g.subtype != '()') {
         throw Error(`internal error, unexpected group type "${g.subtype}"`)
       }
       if (g.args.length == 1) {
-        return build_operators(g.args[0])
+        return mixed_as_clause(g.args[0][0])
       } else {
-        return {type: 'list', elements: g.args.map(build_operators)}
+        return {type: 'list', elements: g.args.map(a => mixed_as_clause(a[0]))}
       }
     case 'func':
-      if ('temp' in g) {
-        return {type: 'func', var: g.var, args: g.args.map(build_operators)}
-      } else {
-        return g
-      }
+      return {type: 'func', var: g.var, args: g.args.map(a => mixed_as_clause(a[0]))}
     case 'num':
       return {type: 'num', value: g.value as number}
     case 'string':
       return {type: 'str', value: g.value as string}
-    case 'list':
     case 'mod':
+      return {type: 'mod', mod: g.mod, element: mixed_as_clause(g.element)}
     case 'operator':
+      return {type: 'operator', operator: g.operator, args: g.args.map(mixed_as_clause)}
     case 'var':
-    case 'str':
-      return g
+      return g as Clause
     default:
       throw Error(`Internal Error: got unexpected element: ${JSON.stringify(g)}`)
   }
 }
 
-interface Num {
-  type: 'num'
-  value: number
-}
-interface Str {
-  type: 'str'
-  value: string
-}
-interface List {
-  type: 'list'
-  elements: Clause[]
-}
-
-interface Func {
-  type: 'func'
-  var: Var
-  args: Clause[]
-}
-
-export type Clause = List | Var | Str | Num | Func | Operation | Modified
-
 export default function build_expression(tokens: Token[]): Clause {
   const groups = build_groups(tokens)
   const chains = build_chains(groups)
   const functions = build_functions(chains)
-  return build_operators(functions)
+  const element = build_operations(functions)[0]
+  return mixed_as_clause(element)
 }
