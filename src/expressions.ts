@@ -90,7 +90,7 @@ interface ChainElement {
   type: 'string' | 'id'
   op: '.' | '.?'
 }
-interface Var {
+export interface Var {
   type: 'var'
   id: string
   chain: ChainElement[]
@@ -158,6 +158,7 @@ function chain_from_brackets(g: TempGroup, op: '.' | '.?'): ChainElement {
 
 interface TempFunc {
   type: 'func'
+  temp: true
   var: Var
   args: MixedElement[][]
 }
@@ -169,7 +170,7 @@ export function build_functions(groups: MixedElement[]): (Token | TempGroup | Va
     if (g.type == 'var') {
       const next = groups[index + 1]
       if (next && next.type == 'group' && next.subtype == '()') {
-        new_groups.push({type: 'func', var: g, args: next.args})
+        new_groups.push({type: 'func', temp: true, var: g, args: next.args})
         index++
         continue
       }
@@ -233,8 +234,11 @@ export function build_operators(groups: MixedElement[]): Clause {
         }
         const a1 = mixed_as_clause(g as MixedElement)
         new_groups.push({type: 'operator', operator: operator_type, args: [a1, ...args]})
-      } else {
+      } else if (operator_precedence.includes(g.type as any)) {
+        // operator still to be processed
         new_groups.push(g)
+      } else {
+        new_groups.push(mixed_as_clause(g))
       }
     }
     tmp_groups = new_groups
@@ -245,22 +249,30 @@ export function build_operators(groups: MixedElement[]): Clause {
   return tmp_groups[0] as Clause
 }
 
-function mixed_as_clause(g: MixedElement): Clause {
-  if (g.type == 'group') {
-    if (g.subtype != '()') {
-      throw Error(`internal error, unexpected group type "${g.subtype}"`)
-    }
-    return {type: 'list', elements: g.args.map(build_operators)}
-  } else if (g.type == 'func') {
-    return {...g, args: g.args.map(build_operators)}
-  } else if (g.type == 'num') {
-    return {type: 'num', value: g.value as number}
-  } else if (g.type == 'string') {
-    return {type: 'string', value: g.value as string}
-  } else if (g.type == 'var') {
-    return g
-  } else {
-    throw Error(`Internal Error: got unexpected element: ${JSON.stringify(g)}`)
+function mixed_as_clause(g: MixedElement | Clause): Clause {
+  switch (g.type) {
+    case 'group':
+      if (g.subtype != '()') {
+        throw Error(`internal error, unexpected group type "${g.subtype}"`)
+      }
+      return {type: 'list', elements: g.args.map(build_operators)}
+    case 'func':
+      if ('temp' in g) {
+        return {type: 'func', var: g.var, args: g.args.map(build_operators)}
+      } else {
+        return g
+      }
+    case 'num':
+      return {type: 'num', value: g.value as number}
+    case 'string':
+      return {type: 'str', value: g.value as string}
+    case 'mod':
+    case 'operator':
+    case 'var':
+    case 'str':
+      return g
+    default:
+      throw Error(`Internal Error: got unexpected element: ${JSON.stringify(g)}`)
   }
 }
 
@@ -268,8 +280,8 @@ interface Num {
   type: 'num'
   value: number
 }
-interface String {
-  type: 'string'
+interface Str {
+  type: 'str'
   value: string
 }
 interface List {
@@ -283,7 +295,7 @@ interface Func {
   args: Clause[]
 }
 
-type Clause = List | Var | String | Num | Func | Operation | Modified
+export type Clause = List | Var | Str | Num | Func | Operation | Modified
 
 export function build_expression(tokens: Token[]): Clause {
   const groups = build_groups(tokens)

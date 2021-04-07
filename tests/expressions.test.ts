@@ -70,7 +70,7 @@ describe('build_groups', () => {
     expect(build_groups(tokens)).toStrictEqual(expected)
   })
 
-  // test('create expected_groups', () => {
+  // test('create-expected_groups', () => {
   //   const tokens: [string[], Token[]][] = expected_groups.map(g => [g[0], g[0].map(utils.compact_as_token)])
   //   const new_expected_groups = tokens.map(([g, t]) => [g, build_groups(t).map(utils.mixed_as_compact)])
   //   console.log(`const expected_groups: [string[], any][] = ${JSON.stringify(new_expected_groups)}`)
@@ -121,6 +121,7 @@ describe('build_functions', () => {
     expect(build_functions(tokens)).toEqual([
       {
         type: 'func',
+        temp: true,
         var: {type: 'var', id: 'abc', chain: []},
         args: [[{type: 'id', value: 'x'}]],
       },
@@ -128,6 +129,12 @@ describe('build_functions', () => {
   })
   // TODO parameterised tests for build_functions
 })
+
+const expected_expressions: [string[], any][] = [
+  [['id:a', '+', 'id:b', '+', 'string:c'], {'op:+': ['var:a', 'var:b', 'str:c']}],
+  [['id:a', '+', 'id:b', '-', 'string:c'], {'op:-': [{'op:+': ['var:a', 'var:b']}, 'str:c']}],
+  [['id:foobar', '(', 'id:spam', ')'], {func: 'var:foobar', args: ['var:spam']}],
+]
 
 describe('build_expression', () => {
   test('simple_add', () => {
@@ -137,9 +144,21 @@ describe('build_expression', () => {
       type: 'operator',
       operator: '+',
       args: [
-        {type: 'string', value: 'foobar'},
+        {type: 'str', value: 'foobar'},
         {type: 'num', value: 123},
       ],
     })
   })
+
+  each(expected_expressions).test('expected_expressions', (tokens_compact, expected_compact) => {
+    const tokens: Token[] = tokens_compact.map(utils.compact_as_token)
+    const expected = utils.compact_as_clause(expected_compact)
+    expect(build_expression(tokens)).toStrictEqual(expected)
+  })
+
+  // test('create-expected_expressions', () => {
+  //   const tokens: [string[], Token[]][] = expected_expressions.map(g => [g[0], g[0].map(utils.compact_as_token)])
+  //   const new_expected_expressions = tokens.map(([g, t]) => [g, utils.clause_as_compact(build_expression(t))])
+  //   console.log(`const expected_expressions: [string[], any][] = ${JSON.stringify(new_expected_expressions)}`)
+  // })
 })
