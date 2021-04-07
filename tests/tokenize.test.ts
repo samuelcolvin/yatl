@@ -1,6 +1,7 @@
-import tokenize, {Token} from '../src/tokenize'
-import * as utils from './utils'
 import each from 'jest-each'
+
+import tokenize, {Token} from '../src/expressions/tokenize'
+import * as utils from './utils'
 
 const expected_tokens: [string, string[]][] = [
   ['"foobar"', ['string:foobar']],
@@ -32,13 +33,13 @@ describe('tokenize', () => {
     expect(tokenize('abc==1')).toEqual(tokens)
   })
 
-  each(expected_tokens).test('expected_tokens', (expression, expected_compact) => {
+  each(expected_tokens).test('expected_tokens %s', (expression, expected_compact) => {
     const expected: Token[] = expected_compact.map(utils.compact_as_token)
     expect(tokenize(expression)).toStrictEqual(expected)
   })
 
   // test('create expected_tokens', () => {
   //   const new_expected_tokens = expected_tokens.map(e => [e[0], tokenize(e[0]).map(utils.token_as_compact)])
-  //   console.log(`const expected_tokens: [string, string[]][] = ${JSON.stringify(new_expected_tokens)}`)
+  //   console.log('const expected_tokens: [string, string[]][] = %j', new_expected_tokens)
   // })
 })

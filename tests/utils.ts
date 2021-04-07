@@ -1,5 +1,5 @@
-import type {Token, TokenType} from '../src/tokenize'
-import type {MixedElement, Clause, Var} from '../src/expressions'
+import type {Token, TokenType} from '../src/expressions/tokenize'
+import type {MixedElement, Clause, Var} from '../src/expressions/build'
 
 export const token_as_compact = (t: Token): string => (typeof t.value != 'undefined' ? `${t.type}:${t.value}` : t.type)
 
@@ -138,6 +138,9 @@ function compact_as_var(s: Record<string, string> | string): Var {
         if (lookup.startsWith('?')) {
           op = '.?'
           lookup = lookup.substr(1)
+        }
+        if (lookup.startsWith('num:')) {
+          return {op, type: 'num', lookup: parseFloat(lookup.substr(4))}
         }
         let type = 'string'
         if (lookup.startsWith('[')) {

@@ -11,7 +11,7 @@
   "private": false,
   "scripts": {
     "build": "tsc",
-    "test": "jest --config jestconfig.json",
+    "test": "jest --config jestconfig.json --verbose",
     "experiment": "ts-node --project tsconfig.json ./src/index.ts",
     "format": "prettier --write 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
     "lint": "eslint --max-warnings=0 src && prettier --check 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'"

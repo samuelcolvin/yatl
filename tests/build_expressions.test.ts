@@ -1,7 +1,10 @@
-import type {Token} from '../src/tokenize'
-import {build_groups, build_chains, build_functions, build_expression, MixedElement} from '../src/expressions'
-import * as utils from './utils'
 import each from 'jest-each'
+
+import type {Token} from '../src/expressions/tokenize'
+import build_expression, {build_groups, build_chains, build_functions, MixedElement} from '../src/expressions/build'
+import {build} from '../src/expressions'
+
+import * as utils from './utils'
 
 const expected_groups: [string[], any][] = [
   [['string:foobar'], ['string:foobar']],
@@ -10,7 +13,7 @@ const expected_groups: [string[], any][] = [
   [['(', 'id:foobar', 'in', 'id:other', ')'], [{'()': [['id:foobar', 'in', 'id:other']]}]],
   [
     ['id:foobar', '[', ']'],
-    ['id:foobar', {'[]': [[]]}],
+    ['id:foobar', {'[]': []}],
   ],
   [
     ['id:foobar', '[', 'id:other', ']'],
@@ -39,6 +42,7 @@ const expected_groups: [string[], any][] = [
     ['id:foobar', '(', 'id:a', '(', 'id:a', ',', 'id:c', ')', ')'],
     ['id:foobar', {'()': [['id:a', {'()': [['id:a'], ['id:c']]}]]}],
   ],
+  [['(', ')'], [{'()': []}]],
 ]
 
 describe('build_groups', () => {
@@ -64,7 +68,7 @@ describe('build_groups', () => {
     ])
   })
 
-  each(expected_groups).test('expected_groups', (tokens_compact, expected_compact) => {
+  each(expected_groups).test('expected_groups %j', (tokens_compact, expected_compact) => {
     const tokens: Token[] = tokens_compact.map(utils.compact_as_token)
     const expected = expected_compact.map(utils.compact_as_mixed)
     expect(build_groups(tokens)).toStrictEqual(expected)
@@ -73,7 +77,7 @@ describe('build_groups', () => {
   // test('create-expected_groups', () => {
   //   const tokens: [string[], Token[]][] = expected_groups.map(g => [g[0], g[0].map(utils.compact_as_token)])
   //   const new_expected_groups = tokens.map(([g, t]) => [g, build_groups(t).map(utils.mixed_as_compact)])
-  //   console.log(`const expected_groups: [string[], any][] = ${JSON.stringify(new_expected_groups)}`)
+  //   console.log('const expected_groups: [string[], any][] = %j', new_expected_groups)
   // })
 })
 
@@ -103,7 +107,7 @@ describe('build_chains', () => {
     expect(build_chains(tokens)).toEqual([{type: 'var', id: 'abc', chain: [{op: '.', lookup: 'x', type: 'string'}]}])
   })
 
-  each(expected_chains).test('expected_chains', (tokens_compact, expected_compact) => {
+  each(expected_chains).test('expected_chains %j', (tokens_compact, expected_compact) => {
     const tokens: Token[] = tokens_compact.map(utils.compact_as_mixed)
     const expected = expected_compact.map(utils.compact_as_mixed)
     // console.log('got %o', build_chains(tokens))
@@ -159,6 +163,68 @@ describe('build_expression', () => {
   // test('create-expected_expressions', () => {
   //   const tokens: [string[], Token[]][] = expected_expressions.map(g => [g[0], g[0].map(utils.compact_as_token)])
   //   const new_expected_expressions = tokens.map(([g, t]) => [g, utils.clause_as_compact(build_expression(t))])
-  //   console.log(`const expected_expressions: [string[], any][] = ${JSON.stringify(new_expected_expressions)}`)
+  //   console.log('const expected_expressions: [string[], any][] = %j', new_expected_expressions)
+  // })
+})
+
+const expected_e2e: [string, any][] = [
+  ['"foobar"', 'str:foobar'],
+  ['bang', 'var:bang'],
+  ['abc == 1', {'op:==': ['var:abc', 'num:1']}],
+  ['abc != (1, 2, 3)', {'op:!=': ['var:abc', ['num:1', 'num:2', 'num:3']]}],
+  ['12 in apple', {'op:in': ['num:12', 'var:apple']}],
+  ['x.y.z * a["x"]', {'op:*': [{'var:x': '.y.z'}, {'var:a': '.x'}]}],
+  ['(a, b) in y', {'op:in': [['var:a', 'var:b'], 'var:y']}],
+  ['x + 4', {'op:+': ['var:x', 'num:4']}],
+  ['(1 + 2) / 2', {'op:/': [{'op:+': ['num:1', 'num:2']}, 'num:2']}],
+  ['thing|spam', {'op:|': ['var:thing', 'var:spam']}],
+  ['foo(1, 2)', {func: 'var:foo', args: ['num:1', 'num:2']}],
+  ['1 + foo(1, 2)', {'op:+': ['num:1', {func: 'var:foo', args: ['num:1', 'num:2']}]}],
+
+  ['foo()', {func: 'var:foo', args: []}],
+  ['thing|spam|another()', {'op:|': ['var:thing', 'var:spam', {func: 'var:another', args: []}]}],
+  ['whatever[1]', {'var:whatever': '.num:1'}],
+]
+
+describe('build-e2e', () => {
+  test('simple_build', () => {
+    const expression = '1 + 3 || foobar(1, spanner)'
+    // console.log(JSON.stringify(build(expression), null, 2))
+    expect(build(expression)).toEqual({
+      type: 'operator',
+      operator: '||',
+      args: [
+        {
+          type: 'operator',
+          operator: '+',
+          args: [
+            {type: 'num', value: 1},
+            {type: 'num', value: 3},
+          ],
+        },
+        {
+          type: 'func',
+          var: {type: 'var', id: 'foobar', chain: []},
+          args: [
+            {type: 'num', value: 1},
+            {type: 'var', id: 'spanner', chain: []},
+          ],
+        },
+      ],
+    })
+  })
+
+  each(expected_e2e).test('expected_e2e %s', (expression, expected_compact) => {
+    // console.log('expression:', expression)
+    const clause = build(expression)
+    // console.log('clause: %o', clause)
+    const expected = utils.compact_as_clause(expected_compact)
+    // console.log('expected: %o', expected)
+    expect(clause).toStrictEqual(expected)
+  })
+
+  // test('create-expected_e2e', () => {
+  //   const new_expected_e2e = expected_e2e.map(g => [g[0], utils.clause_as_compact(build(g[0]))])
+  //   console.log('const expected_e2e: [string, any][] = %j', new_expected_e2e)
   // })
 })

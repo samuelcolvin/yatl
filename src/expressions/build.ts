@@ -57,8 +57,9 @@ export function build_groups(tokens: Token[]): (Token | TempGroup)[] {
       } else if (token.type == close) {
         depth--
         if (depth == 0) {
-          // TODO (maybe) here and below, if build_groups(current_arg) contains only one () group, escape it
-          current_group_args.push(build_groups(current_arg))
+          if (current_arg.length) {
+            current_group_args.push(build_groups(current_arg))
+          }
           members.push({
             type: 'group',
             subtype: current_group_type as GroupSubtype,
@@ -87,7 +88,7 @@ export function build_groups(tokens: Token[]): (Token | TempGroup)[] {
 
 interface ChainElement {
   lookup: string
-  type: 'string' | 'id'
+  type: 'string' | 'id' | 'num'
   op: '.' | '.?'
 }
 export interface Var {
@@ -150,7 +151,7 @@ function chain_from_brackets(g: TempGroup, op: '.' | '.?'): ChainElement {
     throw Error('A single token or string must be used as the input to square brackets')
   }
   const arg = g.args[0][0]
-  if (arg.type != 'id' && arg.type != 'string') {
+  if (arg.type != 'id' && arg.type != 'string' && arg.type != 'num') {
     throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
   }
   return {op, lookup: arg.value as string, type: arg.type}
@@ -203,6 +204,7 @@ interface Operation {
 
 export function build_operators(groups: MixedElement[]): Clause {
   let tmp_groups: (MixedElement | Clause)[] = groups
+  // og('original groups:', groups)
   for (const operator_type of operator_precedence) {
     const new_groups: (MixedElement | Clause)[] = []
     for (let index = 0; index < tmp_groups.length; index++) {
@@ -255,7 +257,11 @@ function mixed_as_clause(g: MixedElement | Clause): Clause {
       if (g.subtype != '()') {
         throw Error(`internal error, unexpected group type "${g.subtype}"`)
       }
-      return {type: 'list', elements: g.args.map(build_operators)}
+      if (g.args.length == 1) {
+        return build_operators(g.args[0])
+      } else {
+        return {type: 'list', elements: g.args.map(build_operators)}
+      }
     case 'func':
       if ('temp' in g) {
         return {type: 'func', var: g.var, args: g.args.map(build_operators)}
@@ -266,6 +272,7 @@ function mixed_as_clause(g: MixedElement | Clause): Clause {
       return {type: 'num', value: g.value as number}
     case 'string':
       return {type: 'str', value: g.value as string}
+    case 'list':
     case 'mod':
     case 'operator':
     case 'var':
@@ -297,7 +304,7 @@ interface Func {
 
 export type Clause = List | Var | Str | Num | Func | Operation | Modified
 
-export function build_expression(tokens: Token[]): Clause {
+export default function build_expression(tokens: Token[]): Clause {
   const groups = build_groups(tokens)
   const chains = build_chains(groups)
   const functions = build_functions(chains)

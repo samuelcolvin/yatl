@@ -14,7 +14,6 @@ module.exports = {
   },
   extends: ['typescript', 'prettier'],
   rules: {
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     'no-constant-condition': 'off',
   },
