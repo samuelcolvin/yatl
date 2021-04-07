@@ -24,6 +24,9 @@ export function mixed_as_compact(g: MixedElement): string | Record<string, any> 
       return var_as_compact(g)
     case 'func':
       return {func: var_as_compact(g.var), args: g.args.map(a => a.map(mixed_as_compact))}
+    case 'mod':
+    case 'operator':
+      throw Error(`got unexpected type to mixed_as_compact: ${JSON.stringify(g)}`)
     default:
       return token_as_compact(g)
   }
@@ -117,7 +120,7 @@ function compact_string_as_mixed(s: string): MixedElement {
 
 function var_as_compact(v: Var): string | Record<string, string> {
   if (v.chain.length) {
-    return {[`var:${v.symbol}`]: v.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
+    return {[`var:${v.symbol}`]: v.chain.map(c => c.op + (c.type == 'str' ? c.lookup : `[${c.lookup}]`)).join('')}
   } else {
     return `var:${v.symbol}`
   }
@@ -142,7 +145,7 @@ function compact_as_var(s: Record<string, string> | string): Var {
         if (lookup.startsWith('num:')) {
           return {op, type: 'num', lookup: parseFloat(lookup.substr(4))}
         }
-        let type = 'string'
+        let type = 'str'
         if (lookup.startsWith('[')) {
           type = 'symbol'
           lookup = lookup.substr(1, lookup.length - 2)

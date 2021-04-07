@@ -7,7 +7,7 @@ import {build} from '../src/expressions'
 import * as utils from './utils'
 
 const expected_groups: [string[], any][] = [
-  [['string:foobar'], ['string:foobar']],
+  [['str:foobar'], ['str:foobar']],
   [['(', 'symbol:foobar', ')'], [{'()': [['symbol:foobar']]}]],
   [['(', 'symbol:foobar', '+', 'num:123', ')'], [{'()': [['symbol:foobar', '+', 'num:123']]}]],
   [['(', 'symbol:foobar', 'in', 'symbol:other', ')'], [{'()': [['symbol:foobar', 'in', 'symbol:other']]}]],
@@ -93,7 +93,7 @@ const expected_chains: [any[], any][] = [
   ],
   [['symbol:foo', '.', 'symbol:bar', '.?', 'symbol:spam'], [{'var:foo': '.bar.?spam'}]],
   [['symbol:foo', {'[]': [['symbol:other']]}], [{'var:foo': '.[other]'}]],
-  [['symbol:foo', {'[]': [['string:foobar']]}], [{'var:foo': '.foobar'}]],
+  [['symbol:foo', {'[]': [['str:foobar']]}], [{'var:foo': '.foobar'}]],
   [['symbol:foo', '.', 'symbol:bar', {'[]': [['symbol:other']]}], [{'var:foo': '.bar.[other]'}]],
   [['symbol:foo', '.', {'[]': [['symbol:other']]}], [{'var:foo': '.[other]'}]],
   [['symbol:foo', '.?', {'[]': [['symbol:other']]}], [{'var:foo': '.?[other]'}]],
@@ -105,7 +105,7 @@ describe('build_chains', () => {
   test('simple-chain', () => {
     const tokens: Token[] = [{type: 'symbol', value: 'abc'}, {type: '.'}, {type: 'symbol', value: 'x'}]
     expect(build_chains(tokens)).toEqual([
-      {type: 'var', symbol: 'abc', chain: [{op: '.', lookup: 'x', type: 'string'}]},
+      {type: 'var', symbol: 'abc', chain: [{op: '.', lookup: 'x', type: 'str'}]},
     ])
   })
 
@@ -137,14 +137,14 @@ describe('build_functions', () => {
 })
 
 const expected_expressions: [string[], any][] = [
-  [['symbol:a', '+', 'symbol:b', '+', 'string:c'], {'op:+': ['var:a', 'var:b', 'str:c']}],
-  [['symbol:a', '+', 'symbol:b', '-', 'string:c'], {'op:-': [{'op:+': ['var:a', 'var:b']}, 'str:c']}],
+  [['symbol:a', '+', 'symbol:b', '+', 'str:c'], {'op:+': ['var:a', 'var:b', 'str:c']}],
+  [['symbol:a', '+', 'symbol:b', '-', 'str:c'], {'op:-': [{'op:+': ['var:a', 'var:b']}, 'str:c']}],
   [['symbol:foobar', '(', 'symbol:spam', ')'], {func: 'var:foobar', args: ['var:spam']}],
 ]
 
 describe('build_expression', () => {
   test('simple_add', () => {
-    const tokens: Token[] = ['string:foobar', '+', 'num:123'].map(utils.compact_as_token)
+    const tokens: Token[] = ['str:foobar', '+', 'num:123'].map(utils.compact_as_token)
     // console.log(JSON.stringify(build_expression(tokens), null, 2))
     expect(build_expression(tokens)).toEqual({
       type: 'operator',

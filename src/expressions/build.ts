@@ -88,7 +88,7 @@ export function build_groups(tokens: Token[]): (Token | TempGroup)[] {
 
 interface ChainElement {
   lookup: string
-  type: 'string' | 'symbol' | 'num'
+  type: 'str' | 'symbol' | 'num'
   op: '.' | '.?'
 }
 export interface Var {
@@ -112,7 +112,7 @@ export function build_chains(groups: (Token | TempGroup)[]): (Token | TempGroup 
             chain.push(chain_from_brackets(lookup, op))
           } else if (lookup.type == 'symbol') {
             // type here is string since we use the raw item, rather than considering it as a variable
-            chain.push({op, lookup: lookup.value as string, type: 'string'})
+            chain.push({op, lookup: lookup.value as string, type: 'str'})
           } else if (!lookup) {
             throw Error(`expression ended with operator "${op}", no final token`)
           } else {
@@ -151,7 +151,7 @@ function chain_from_brackets(g: TempGroup, op: '.' | '.?'): ChainElement {
     throw Error('A single token or string must be used as the input to square brackets')
   }
   const arg = g.args[0][0]
-  if (arg.type != 'symbol' && arg.type != 'string' && arg.type != 'num') {
+  if (arg.type != 'symbol' && arg.type != 'str' && arg.type != 'num') {
     throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
   }
   return {op, lookup: arg.value as string, type: arg.type}
@@ -187,8 +187,9 @@ export function build_functions(groups: MixedElement[]): (Token | TempGroup | Va
 }
 
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
-export type OperatorTypes = '|' | '*' | '/' | '+' | '-' | '==' | '!=' | 'in' | '&&' | '||'
-const operator_precedence: OperatorTypes[] = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||']
+const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
+export type OperatorType = typeof operator_precedence[number];
+const operator_set: Set<OperatorType> = new Set(operator_precedence)
 
 export interface TempModified {
   type: 'mod'
@@ -198,7 +199,7 @@ export interface TempModified {
 
 export interface TempOperation {
   type: 'operator'
-  operator: OperatorTypes
+  operator: OperatorType
   args: MixedElement[]
 }
 
@@ -221,7 +222,7 @@ export function build_operations(groups: MixedElement[]): MixedElement[] {
           }
           index += 3
           args.push({type: 'mod', mod: arg.type, element: apple_build_operations(element)})
-        } else if (operator_precedence.includes(arg.type as any)) {
+        } else if (operator_set.has(arg.type as any)) {
           throw Error(`operator "${operator_type}" followed by another operator "${arg.type}`)
         } else {
           args.push(arg)
@@ -280,7 +281,7 @@ export interface Modified {
 }
 export interface Operation {
   type: 'operator'
-  operator: OperatorTypes
+  operator: OperatorType
   args: Clause[]
 }
 
@@ -301,7 +302,7 @@ function mixed_as_clause(g: MixedElement): Clause {
       return {type: 'func', var: g.var, args: g.args.map(a => mixed_as_clause(a[0]))}
     case 'num':
       return {type: 'num', value: g.value as number}
-    case 'string':
+    case 'str':
       return {type: 'str', value: g.value as string}
     case 'mod':
       return {type: 'mod', mod: g.mod, element: mixed_as_clause(g.element)}

@@ -1,35 +1,33 @@
-export type TokenType =
-  | '('
-  | ')'
-  | '['
-  | ']'
-  | ','
-  | '.'
-  | '+'
-  | '-'
-  | '/'
-  | '*'
-  | '|'
-  | '!'
-  | '=='
-  | '!='
-  | '||'
-  | '&&'
-  | '.?'
-  | 'in'
-  | 'num'
-  | 'symbol'
-  | 'string'
+const token_types = [
+  '(',
+  ')',
+  '[',
+  ']',
+  ',',
+  '.',
+  '+',
+  '-',
+  '/',
+  '*',
+  '|',
+  '!',
+  '==',
+  '!=',
+  '||',
+  '&&',
+  '.?',
+  'in',
+  'num',
+  'symbol',
+  'str',
+] as const
+export type TokenType = typeof token_types[number];
+export const token_set: Set<TokenType> = new Set(token_types)
 
 const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])
 
 const single_ops: Set<TokenType> = new Set(['(', ')', '[', ']', ',', '.', '+', '-', '/', '*', '|', '!'])
-const keywords: Record<string, TokenType> = {
-  in: 'in',
-  or: '||',
-  and: '&&',
-  not: '!',
-}
+const keywords: Record<string, TokenType> = {in: 'in', or: '||', and: '&&', not: '!'}
 
 export interface Token {
   type: TokenType
@@ -79,7 +77,7 @@ class Tokenize {
     } else if (numbers.has(letter)) {
       return this._number(letter)
     } else if (/[a-zA-Z]/.test(letter)) {
-      return this._sumbol(letter)
+      return this._symbol(letter)
     } else if (letter == '"' || letter == "'") {
       return this._string(letter)
     } else {
@@ -113,7 +111,7 @@ class Tokenize {
     }
   }
 
-  _sumbol(letter: string): Token {
+  _symbol(letter: string): Token {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
@@ -145,7 +143,7 @@ class Tokenize {
         )
       }
       if (!escape && new_letter == letter) {
-        return {type: 'string', value}
+        return {type: 'str', value}
       }
       value += new_letter
     }

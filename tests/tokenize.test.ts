@@ -4,9 +4,9 @@ import tokenize, {Token} from '../src/expressions/tokenize'
 import * as utils from './utils'
 
 const expected_tokens: [string, string[]][] = [
-  ['"foobar"', ['string:foobar']],
-  ["'foobar'", ['string:foobar']],
-  ["'foo\"bar'", ['string:foo"bar']],
+  ['"foobar"', ['str:foobar']],
+  ["'foobar'", ['str:foobar']],
+  ["'foo\"bar'", ['str:foo"bar']],
   ['bang', ['symbol:bang']],
   ['ba_ng', ['symbol:ba_ng']],
   ['in', ['in']],
