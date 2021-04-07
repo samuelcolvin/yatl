@@ -29,6 +29,10 @@ const evaluate_expect: [string, any][] = [
   ['is_true or is_false', true],
   ['is_true || is_false', true],
   ['true || is_false', true],
+  ['no_args()', 42],
+  ['one_argument(2)', 4],
+  ['one_argument(2 + 3 - 1)', 8],
+  ['2|one_argument', 4],
 ]
 const text_context = {
   a: {
@@ -46,6 +50,10 @@ const text_context = {
   is_false: false,
   is_true: true,
 }
+const test_functions = {
+  no_args: () => 42,
+  one_argument: (x: number) => x * 2,
+}
 
 describe('evaluate', () => {
   it('maths', () => {
@@ -55,6 +63,6 @@ describe('evaluate', () => {
     expect(evaluate('x', {x: 'foobar'}, {})).toEqual('foobar')
   })
   each(evaluate_expect).test('expected_expressions %s -> %j', (expression, expected_result) => {
-    expect(evaluate(expression, text_context, {})).toStrictEqual(expected_result)
+    expect(evaluate(expression, text_context, test_functions)).toStrictEqual(expected_result)
   })
 })

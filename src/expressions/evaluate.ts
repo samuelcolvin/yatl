@@ -15,8 +15,13 @@ export default class Evaluator {
     this.functions = functions
 
     this.operator_functions = {
-      '|': () => {
-        throw Error('TODO')
+      '|': (a: any, b: Var) => {
+        // TODO deal with functions
+        const func = this.functions[b.symbol]
+        if (!func) {
+          throw Error(`function "${b.symbol}" not found`)
+        }
+        return func(a)
       },
       '*': (a, b) => a * b,
       '/': (a, b) => a / b,
@@ -116,8 +121,12 @@ export default class Evaluator {
 
   _operation(op: Operation): Result {
     const func = this.operator_functions[op.operator]
-    const args = op.args.map(a => this.evaluate(a))
-    return args.slice(1).reduce(func, args[0])
+    if (op.operator == '|') {
+      return op.args.slice(1).reduce(func, this.evaluate(op.args[0]))
+    } else {
+      const args = op.args.map(a => this.evaluate(a))
+      return args.slice(1).reduce(func, args[0])
+    }
   }
 
   _modifiers(mod: Modified): Result {
