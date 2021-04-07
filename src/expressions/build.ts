@@ -265,6 +265,10 @@ interface Num {
   type: 'num'
   value: number
 }
+interface Bool {
+  type: 'bool'
+  value: boolean
+}
 interface List {
   type: 'list'
   elements: Clause[]
@@ -285,7 +289,7 @@ export interface Operation {
   args: Clause[]
 }
 
-export type Clause = Var | Str | Num | List | Func | Modified | Operation
+export type Clause = Var | Str | Num | List | Func | Modified | Operation | Bool
 
 function mixed_as_clause(g: MixedElement): Clause {
   switch (g.type) {
@@ -304,6 +308,9 @@ function mixed_as_clause(g: MixedElement): Clause {
       return {type: 'num', value: g.value as number}
     case 'str':
       return {type: 'str', value: g.value as string}
+    case 'true':
+    case 'false':
+      return {type: 'bool', value: g.type == 'true'}
     case 'mod':
       return {type: 'mod', mod: g.mod, element: mixed_as_clause(g.element)}
     case 'operator':

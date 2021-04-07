@@ -17,17 +17,27 @@ const token_types = [
   '&&',
   '.?',
   'in',
+  'true',
+  'false',
   'num',
   'symbol',
   'str',
 ] as const
 export type TokenType = typeof token_types[number]
-export const token_set: Set<TokenType> = new Set(token_types)
 
 const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])
 
 const single_ops: Set<TokenType> = new Set(['(', ')', '[', ']', ',', '.', '+', '-', '/', '*', '|', '!'])
-const keywords: Record<string, TokenType> = {in: 'in', or: '||', and: '&&', not: '!'}
+const keywords: Record<string, TokenType> = {
+  in: 'in',
+  true: 'true',
+  True: 'true',
+  false: 'false',
+  False: 'false',
+  or: '||',
+  and: '&&',
+  not: '!',
+}
 
 export interface Token {
   type: TokenType

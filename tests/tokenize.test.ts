@@ -24,6 +24,8 @@ const expected_tokens: [string, string[]][] = [
   ['(1 + 2) / 2', ['(', 'num:1', '+', 'num:2', ')', '/', 'num:2']],
   ['thing|func', ['symbol:thing', '|', 'symbol:func']],
   ['whatever[1]', ['symbol:whatever', '[', 'num:1', ']']],
+  ['true', ['true']],
+  ['True', ['true']],
 ]
 
 describe('tokenize', () => {

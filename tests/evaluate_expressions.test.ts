@@ -28,6 +28,7 @@ const evaluate_expect: [string, any][] = [
   ['is_true and is_false', false],
   ['is_true or is_false', true],
   ['is_true || is_false', true],
+  ['true || is_false', true],
 ]
 const text_context = {
   a: {

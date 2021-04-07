@@ -15,7 +15,7 @@ export default class Evaluator {
     this.functions = functions
 
     this.operator_functions = {
-      '|': (a, b) => {
+      '|': () => {
         throw Error('TODO')
       },
       '*': (a, b) => a * b,
@@ -36,6 +36,7 @@ export default class Evaluator {
         return this._var(c)
       case 'str':
       case 'num':
+      case 'bool':
         return c.value
       case 'list':
         return c.elements.map(e => this.evaluate(e))
