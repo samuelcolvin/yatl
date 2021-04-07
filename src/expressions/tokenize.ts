@@ -18,7 +18,7 @@ export type TokenType =
   | '.?'
   | 'in'
   | 'num'
-  | 'id'
+  | 'symbol'
   | 'string'
 
 const multi_ops: Set<TokenType> = new Set(['==', '!=', '||', '&&', '.?'])
@@ -79,7 +79,7 @@ class Tokenize {
     } else if (numbers.has(letter)) {
       return this._number(letter)
     } else if (/[a-zA-Z]/.test(letter)) {
-      return this._token(letter)
+      return this._sumbol(letter)
     } else if (letter == '"' || letter == "'") {
       return this._string(letter)
     } else {
@@ -113,7 +113,7 @@ class Tokenize {
     }
   }
 
-  _token(letter: string): Token {
+  _sumbol(letter: string): Token {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
@@ -122,7 +122,7 @@ class Tokenize {
         if (keyword_type) {
           return {type: keyword_type}
         } else {
-          return {type: 'id', value}
+          return {type: 'symbol', value}
         }
       }
       value += new_letter

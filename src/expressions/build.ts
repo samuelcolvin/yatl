@@ -88,12 +88,12 @@ export function build_groups(tokens: Token[]): (Token | TempGroup)[] {
 
 interface ChainElement {
   lookup: string
-  type: 'string' | 'id' | 'num'
+  type: 'string' | 'symbol' | 'num'
   op: '.' | '.?'
 }
 export interface Var {
   type: 'var'
-  id: string
+  symbol: string
   chain: ChainElement[]
 }
 
@@ -101,7 +101,7 @@ export function build_chains(groups: (Token | TempGroup)[]): (Token | TempGroup 
   const new_groups: (Token | TempGroup | Var)[] = []
   for (let index = 0; index < groups.length; index++) {
     const g = groups[index]
-    if (g.type == 'id') {
+    if (g.type == 'symbol') {
       const chain: ChainElement[] = []
       while (true) {
         const next = groups[index + 1]
@@ -110,7 +110,7 @@ export function build_chains(groups: (Token | TempGroup)[]): (Token | TempGroup 
           const op = next.type as '.' | '.?'
           if (lookup && lookup.type == 'group' && lookup.subtype == '[]') {
             chain.push(chain_from_brackets(lookup, op))
-          } else if (lookup.type == 'id') {
+          } else if (lookup.type == 'symbol') {
             // type here is string since we use the raw item, rather than considering it as a variable
             chain.push({op, lookup: lookup.value as string, type: 'string'})
           } else if (!lookup) {
@@ -127,7 +127,7 @@ export function build_chains(groups: (Token | TempGroup)[]): (Token | TempGroup 
         }
       }
 
-      new_groups.push({type: 'var', id: g.value as string, chain})
+      new_groups.push({type: 'var', symbol: g.value as string, chain})
     } else if (g.type == 'group') {
       if (g.subtype == '[]') {
         throw Error('square brackets [] can only be used after a token')
@@ -151,7 +151,7 @@ function chain_from_brackets(g: TempGroup, op: '.' | '.?'): ChainElement {
     throw Error('A single token or string must be used as the input to square brackets')
   }
   const arg = g.args[0][0]
-  if (arg.type != 'id' && arg.type != 'string' && arg.type != 'num') {
+  if (arg.type != 'symbol' && arg.type != 'string' && arg.type != 'num') {
     throw Error(`A token or string must be used as the input to square brackets, not "${arg.type}"`)
   }
   return {op, lookup: arg.value as string, type: arg.type}

@@ -109,7 +109,7 @@ export function compact_as_clause(s: string | any[] | Record<string, any>): Clau
 
 function compact_string_as_mixed(s: string): MixedElement {
   if (s.startsWith('var:')) {
-    return {type: 'var', id: s.substr(4), chain: []}
+    return {type: 'var', symbol: s.substr(4), chain: []}
   } else {
     return compact_as_token(s)
   }
@@ -117,15 +117,15 @@ function compact_string_as_mixed(s: string): MixedElement {
 
 function var_as_compact(v: Var): string | Record<string, string> {
   if (v.chain.length) {
-    return {[`var:${v.id}`]: v.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
+    return {[`var:${v.symbol}`]: v.chain.map(c => c.op + (c.type == 'string' ? c.lookup : `[${c.lookup}]`)).join('')}
   } else {
-    return `var:${v.id}`
+    return `var:${v.symbol}`
   }
 }
 
 function compact_as_var(s: Record<string, string> | string): Var {
   if (typeof s == 'string') {
-    return {type: 'var', id: s.substr(4), chain: []}
+    return {type: 'var', symbol: s.substr(4), chain: []}
   }
   const [key, value] = Object.entries(s)[0]
   let chain: any[] = []
@@ -144,7 +144,7 @@ function compact_as_var(s: Record<string, string> | string): Var {
         }
         let type = 'string'
         if (lookup.startsWith('[')) {
-          type = 'id'
+          type = 'symbol'
           lookup = lookup.substr(1, lookup.length - 2)
         }
         return {op, type, lookup}
@@ -152,7 +152,7 @@ function compact_as_var(s: Record<string, string> | string): Var {
   }
   return {
     type: 'var',
-    id: key.substr(4),
+    symbol: key.substr(4),
     chain,
   }
 }

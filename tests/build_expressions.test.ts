@@ -8,62 +8,62 @@ import * as utils from './utils'
 
 const expected_groups: [string[], any][] = [
   [['string:foobar'], ['string:foobar']],
-  [['(', 'id:foobar', ')'], [{'()': [['id:foobar']]}]],
-  [['(', 'id:foobar', '+', 'num:123', ')'], [{'()': [['id:foobar', '+', 'num:123']]}]],
-  [['(', 'id:foobar', 'in', 'id:other', ')'], [{'()': [['id:foobar', 'in', 'id:other']]}]],
+  [['(', 'symbol:foobar', ')'], [{'()': [['symbol:foobar']]}]],
+  [['(', 'symbol:foobar', '+', 'num:123', ')'], [{'()': [['symbol:foobar', '+', 'num:123']]}]],
+  [['(', 'symbol:foobar', 'in', 'symbol:other', ')'], [{'()': [['symbol:foobar', 'in', 'symbol:other']]}]],
   [
-    ['id:foobar', '[', ']'],
-    ['id:foobar', {'[]': []}],
+    ['symbol:foobar', '[', ']'],
+    ['symbol:foobar', {'[]': []}],
   ],
   [
-    ['id:foobar', '[', 'id:other', ']'],
-    ['id:foobar', {'[]': [['id:other']]}],
+    ['symbol:foobar', '[', 'symbol:other', ']'],
+    ['symbol:foobar', {'[]': [['symbol:other']]}],
   ],
-  [['(', '(', 'id:foobar', ')', ')'], [{'()': [[{'()': [['id:foobar']]}]]}]],
-  [['(', 'id:foobar', '(', 'id:foobar', ')', ')'], [{'()': [['id:foobar', {'()': [['id:foobar']]}]]}]],
-  [['(', '(', 'id:foobar', ')', 'id:foobar', ')'], [{'()': [[{'()': [['id:foobar']]}, 'id:foobar']]}]],
+  [['(', '(', 'symbol:foobar', ')', ')'], [{'()': [[{'()': [['symbol:foobar']]}]]}]],
+  [['(', 'symbol:foobar', '(', 'symbol:foobar', ')', ')'], [{'()': [['symbol:foobar', {'()': [['symbol:foobar']]}]]}]],
+  [['(', '(', 'symbol:foobar', ')', 'symbol:foobar', ')'], [{'()': [[{'()': [['symbol:foobar']]}, 'symbol:foobar']]}]],
   [
-    ['id:foobar', '(', 'id:a', ',', 'id:b', ')'],
-    ['id:foobar', {'()': [['id:a'], ['id:b']]}],
-  ],
-  [
-    ['id:foobar', '(', 'id:a', '+', 'id:c', ',', 'id:b', ')'],
-    ['id:foobar', {'()': [['id:a', '+', 'id:c'], ['id:b']]}],
+    ['symbol:foobar', '(', 'symbol:a', ',', 'symbol:b', ')'],
+    ['symbol:foobar', {'()': [['symbol:a'], ['symbol:b']]}],
   ],
   [
-    ['id:foobar', '(', 'id:a', '+', 'id:c', ',', 'id:b', ')'],
-    ['id:foobar', {'()': [['id:a', '+', 'id:c'], ['id:b']]}],
+    ['symbol:foobar', '(', 'symbol:a', '+', 'symbol:c', ',', 'symbol:b', ')'],
+    ['symbol:foobar', {'()': [['symbol:a', '+', 'symbol:c'], ['symbol:b']]}],
   ],
   [
-    ['id:foobar', '(', 'id:a', '-', '(', 'id:a', '+', 'id:c', ')', ')'],
-    ['id:foobar', {'()': [['id:a', '-', {'()': [['id:a', '+', 'id:c']]}]]}],
+    ['symbol:foobar', '(', 'symbol:a', '+', 'symbol:c', ',', 'symbol:b', ')'],
+    ['symbol:foobar', {'()': [['symbol:a', '+', 'symbol:c'], ['symbol:b']]}],
   ],
   [
-    ['id:foobar', '(', 'id:a', '(', 'id:a', ',', 'id:c', ')', ')'],
-    ['id:foobar', {'()': [['id:a', {'()': [['id:a'], ['id:c']]}]]}],
+    ['symbol:foobar', '(', 'symbol:a', '-', '(', 'symbol:a', '+', 'symbol:c', ')', ')'],
+    ['symbol:foobar', {'()': [['symbol:a', '-', {'()': [['symbol:a', '+', 'symbol:c']]}]]}],
+  ],
+  [
+    ['symbol:foobar', '(', 'symbol:a', '(', 'symbol:a', ',', 'symbol:c', ')', ')'],
+    ['symbol:foobar', {'()': [['symbol:a', {'()': [['symbol:a'], ['symbol:c']]}]]}],
   ],
   [['(', ')'], [{'()': []}]],
 ]
 
 describe('build_groups', () => {
   test('simple-group', () => {
-    const tokens: Token[] = [{type: '('}, {type: 'id', value: 'abc'}, {type: ')'}]
+    const tokens: Token[] = [{type: '('}, {type: 'symbol', value: 'abc'}, {type: ')'}]
     expect(build_groups(tokens)).toEqual([
       {
         type: 'group',
         subtype: '()',
-        args: [[{type: 'id', value: 'abc'}]],
+        args: [[{type: 'symbol', value: 'abc'}]],
       },
     ])
   })
 
   test('recursive', () => {
-    const tokens: Token[] = ['(', '(', 'id:foobar', ')', ')'].map(utils.compact_as_token)
+    const tokens: Token[] = ['(', '(', 'symbol:foobar', ')', ')'].map(utils.compact_as_token)
     expect(build_groups(tokens)).toEqual([
       {
         type: 'group',
         subtype: '()',
-        args: [[{type: 'group', subtype: '()', args: [[{type: 'id', value: 'foobar'}]]}]],
+        args: [[{type: 'group', subtype: '()', args: [[{type: 'symbol', value: 'foobar'}]]}]],
       },
     ])
   })
@@ -82,29 +82,31 @@ describe('build_groups', () => {
 })
 
 const expected_chains: [any[], any][] = [
-  [['id:foo'], ['var:foo']],
+  [['symbol:foo'], ['var:foo']],
   [
-    ['id:foo', 'num:1'],
+    ['symbol:foo', 'num:1'],
     ['var:foo', 'num:1'],
   ],
   [
-    ['id:foo', '.', 'id:bar', 'num:1'],
+    ['symbol:foo', '.', 'symbol:bar', 'num:1'],
     [{'var:foo': '.bar'}, 'num:1'],
   ],
-  [['id:foo', '.', 'id:bar', '.?', 'id:spam'], [{'var:foo': '.bar.?spam'}]],
-  [['id:foo', {'[]': [['id:other']]}], [{'var:foo': '.[other]'}]],
-  [['id:foo', {'[]': [['string:foobar']]}], [{'var:foo': '.foobar'}]],
-  [['id:foo', '.', 'id:bar', {'[]': [['id:other']]}], [{'var:foo': '.bar.[other]'}]],
-  [['id:foo', '.', {'[]': [['id:other']]}], [{'var:foo': '.[other]'}]],
-  [['id:foo', '.?', {'[]': [['id:other']]}], [{'var:foo': '.?[other]'}]],
-  [[{'()': [['id:foobar']]}], [{'()': [['var:foobar']]}]],
+  [['symbol:foo', '.', 'symbol:bar', '.?', 'symbol:spam'], [{'var:foo': '.bar.?spam'}]],
+  [['symbol:foo', {'[]': [['symbol:other']]}], [{'var:foo': '.[other]'}]],
+  [['symbol:foo', {'[]': [['string:foobar']]}], [{'var:foo': '.foobar'}]],
+  [['symbol:foo', '.', 'symbol:bar', {'[]': [['symbol:other']]}], [{'var:foo': '.bar.[other]'}]],
+  [['symbol:foo', '.', {'[]': [['symbol:other']]}], [{'var:foo': '.[other]'}]],
+  [['symbol:foo', '.?', {'[]': [['symbol:other']]}], [{'var:foo': '.?[other]'}]],
+  [[{'()': [['symbol:foobar']]}], [{'()': [['var:foobar']]}]],
   [[{'()': [['num:123']]}], [{'()': [['num:123']]}]],
 ]
 
 describe('build_chains', () => {
   test('simple-chain', () => {
-    const tokens: Token[] = [{type: 'id', value: 'abc'}, {type: '.'}, {type: 'id', value: 'x'}]
-    expect(build_chains(tokens)).toEqual([{type: 'var', id: 'abc', chain: [{op: '.', lookup: 'x', type: 'string'}]}])
+    const tokens: Token[] = [{type: 'symbol', value: 'abc'}, {type: '.'}, {type: 'symbol', value: 'x'}]
+    expect(build_chains(tokens)).toEqual([
+      {type: 'var', symbol: 'abc', chain: [{op: '.', lookup: 'x', type: 'string'}]},
+    ])
   })
 
   each(expected_chains).test('expected_chains %j', (tokens_compact, expected_compact) => {
@@ -119,15 +121,15 @@ describe('build_chains', () => {
 describe('build_functions', () => {
   test('simple-function', () => {
     const tokens: MixedElement[] = [
-      {type: 'var', id: 'abc', chain: []},
-      {type: 'group', subtype: '()', args: [[{type: 'id', value: 'x'}]]},
+      {type: 'var', symbol: 'abc', chain: []},
+      {type: 'group', subtype: '()', args: [[{type: 'var', symbol: 'def', chain: []}]]},
     ]
     expect(build_functions(tokens)).toEqual([
       {
         type: 'func',
         temp: true,
-        var: {type: 'var', id: 'abc', chain: []},
-        args: [[{type: 'id', value: 'x'}]],
+        var: {type: 'var', symbol: 'abc', chain: []},
+        args: [[{type: 'var', symbol: 'def', chain: []}]],
       },
     ])
   })
@@ -135,9 +137,9 @@ describe('build_functions', () => {
 })
 
 const expected_expressions: [string[], any][] = [
-  [['id:a', '+', 'id:b', '+', 'string:c'], {'op:+': ['var:a', 'var:b', 'str:c']}],
-  [['id:a', '+', 'id:b', '-', 'string:c'], {'op:-': [{'op:+': ['var:a', 'var:b']}, 'str:c']}],
-  [['id:foobar', '(', 'id:spam', ')'], {func: 'var:foobar', args: ['var:spam']}],
+  [['symbol:a', '+', 'symbol:b', '+', 'string:c'], {'op:+': ['var:a', 'var:b', 'str:c']}],
+  [['symbol:a', '+', 'symbol:b', '-', 'string:c'], {'op:-': [{'op:+': ['var:a', 'var:b']}, 'str:c']}],
+  [['symbol:foobar', '(', 'symbol:spam', ')'], {func: 'var:foobar', args: ['var:spam']}],
 ]
 
 describe('build_expression', () => {
@@ -205,10 +207,10 @@ describe('build-e2e', () => {
         },
         {
           type: 'func',
-          var: {type: 'var', id: 'foobar', chain: []},
+          var: {type: 'var', symbol: 'foobar', chain: []},
           args: [
             {type: 'num', value: 1},
-            {type: 'var', id: 'spanner', chain: []},
+            {type: 'var', symbol: 'spanner', chain: []},
           ],
         },
       ],
