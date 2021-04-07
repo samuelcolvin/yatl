@@ -180,6 +180,7 @@ const expected_e2e: [string, any][] = [
   ['thing|spam', {'op:|': ['var:thing', 'var:spam']}],
   ['foo(1, 2)', {func: 'var:foo', args: ['num:1', 'num:2']}],
   ['1 + foo(1, 2)', {'op:+': ['num:1', {func: 'var:foo', args: ['num:1', 'num:2']}]}],
+  ['foo(1 + 2, x.?[y])', {func: 'var:foo', args: [{'op:+': ['num:1', 'num:2']}, {'var:x': '.?[y]'}]}],
 
   ['foo()', {func: 'var:foo', args: []}],
   ['thing|spam|another()', {'op:|': ['var:thing', 'var:spam', {func: 'var:another', args: []}]}],
