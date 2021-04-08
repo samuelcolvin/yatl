@@ -185,6 +185,7 @@ const expected_e2e: [string, any][] = [
   ['foo()', {func: 'var:foo', args: []}],
   ['thing|spam|another()', {'op:|': ['var:thing', 'var:spam', {func: 'var:another', args: []}]}],
   ['whatever[1]', {'var:whatever': '.num:1'}],
+  ['"bar"|filter_function("foo")', {'op:|': ['str:bar', {func: 'var:filter_function', args: ['str:foo']}]}],
 ]
 
 describe('build-e2e', () => {
@@ -216,11 +217,9 @@ describe('build-e2e', () => {
   })
 
   each(expected_e2e).test('expected_e2e %s', (expression, expected_compact) => {
-    // console.log('expression:', expression)
     const clause = build(expression)
-    // console.log('clause: %o', clause)
+    // console.log('clause: %o, compact: %j', clause, utils.clause_as_compact(clause))
     const expected = utils.compact_as_clause(expected_compact)
-    // console.log('expected: %o', expected)
     expect(clause).toStrictEqual(expected)
   })
 

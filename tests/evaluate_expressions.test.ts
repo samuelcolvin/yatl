@@ -1,5 +1,6 @@
 import each from 'jest-each'
 
+import type {Context, Functions} from '../src/expressions/evaluate'
 import {evaluate} from '../src/expressions'
 
 const evaluate_expect: [string, any][] = [
@@ -33,8 +34,10 @@ const evaluate_expect: [string, any][] = [
   ['one_argument(2)', 4],
   ['one_argument(2 + 3 - 1)', 8],
   ['2|one_argument', 4],
+  ['namespace.add(1, 2)', 3],
+  ['"bar"|filter_function("foo")', 'foobar'],
 ]
-const text_context = {
+const text_context: Context = {
   a: {
     b: 'b-value',
     c: {
@@ -50,9 +53,15 @@ const text_context = {
   is_false: false,
   is_true: true,
 }
-const test_functions = {
+const test_functions: Functions = {
   no_args: () => 42,
   one_argument: (x: number) => x * 2,
+  filter_function: (a: string) => {
+    return (b: string) => a + b
+  },
+  namespace: {
+    add: (a: number, b: number) => a + b,
+  },
 }
 
 describe('evaluate', () => {
