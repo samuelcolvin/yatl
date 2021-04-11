@@ -4,13 +4,27 @@ export function shouldnt_happen(type: never): never {
   throw Error(`Internal Error: got unexpected type ${JSON.stringify(type)}`)
 }
 
-type Type = 'null' | 'undefined' | 'number' | 'boolean' | 'date' | 'regexp' | 'string' | 'array' | 'object' | 'function'
+type Type =
+  | 'null'
+  | 'undefined'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'regexp'
+  | 'string'
+  | 'array'
+  | 'object'
+  | 'function'
+
 export const smart_typeof = (obj: any): Type => {
   /**
    * Helper to get the type of objects, works even for primitives, see
    * https://stackoverflow.com/questions/30476150/javascript-deep-comparison-recursively-objects-and-properties
    */
-  return Object.prototype.toString.call(obj).replace(/\[object (.+)]/, '$1').toLowerCase() as Type
+  return Object.prototype.toString
+    .call(obj)
+    .replace(/\[object (.+)]/, '$1')
+    .toLowerCase() as Type
 }
 
 export const has_property = (obj: any, key: string): boolean => Object.prototype.hasOwnProperty.call(obj, key)
@@ -72,7 +86,6 @@ export function smart_equals(a: Result, b: Result): boolean {
       return false
     }
     return Object.entries(a_obj).every(([k, v]) => smart_equals(v, b_obj[k]))
-
   } else if (a_type == 'array') {
     const a_array = a as Result[]
     const b_array = b as Result[]
