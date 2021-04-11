@@ -26,5 +26,8 @@
     this is anther thing {{ double(42) }}
   </span>
   <MyComponent name=":first_name"/>
+  <div v-for="x in whatever">
+    {{ x }}
+  </div>
 </template>
 

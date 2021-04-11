@@ -1,7 +1,7 @@
-import {shouldnt_happen, is_object} from '../utils'
+import {shouldnt_happen, is_object, smart_equals, smart_typeof, has_property} from '../utils'
 import type {Clause, Operation, OperatorType, Modified, Var, Func, ChainElement} from './build'
 
-export type Result = string | number | boolean | null | undefined | Date | Result[]
+export type Result = string | number | boolean | null | undefined | Date | Result[] | {[key: string]: Result}
 
 type LookupType<R> = {[key: string]: R | (R | LookupType<R>)[] | LookupType<R>}
 export type Context = LookupType<Result>
@@ -11,23 +11,24 @@ export type Functions = LookupType<TemplateFunction>
 export default class Evaluator {
   context: Context
   functions: Functions
-  operator_functions: Record<OperatorType, (a: any, b: any) => Result>
+  operator_functions: Record<OperatorType, (value: Result, args: Clause[]) => Result>
 
   constructor(context: Context, functions: Functions) {
     this.context = context
     this.functions = functions
+    this.evaluate = this.evaluate.bind(this)
 
     this.operator_functions = {
-      '|': (a, b) => this._filter_run(a, b),
-      '*': (a, b) => a * b,
-      '/': (a, b) => a / b,
-      '+': (a, b) => a + b,
-      '-': (a, b) => a - b,
-      '==': (a, b) => a == b,
-      '!=': (a, b) => a != b,
-      in: (a, b) => b.includes(a),
-      '&&': (a, b) => a && b,
-      '||': (a, b) => a || b,
+      '|': (value, args) => args.reduce((a, b) => this._filter_run(a, b as Var | Func), value),
+      '*': (value, args) => this._op_mult_div(value, args, '*'),
+      '/': (value, args) => this._op_mult_div(value, args, '/'),
+      '+': this._op_add.bind(this),
+      '-': this._op_subtract.bind(this),
+      '==': (value, args) => this._op_equals(value, args, '=='),
+      '!=': (value, args) => this._op_equals(value, args, '!='),
+      'in': this._op_in.bind(this),
+      '&&': this._op_and.bind(this),
+      '||': this._op_or.bind(this),
     }
   }
 
@@ -79,13 +80,7 @@ export default class Evaluator {
 
   _operation(op: Operation): Result {
     const func = this.operator_functions[op.operator]
-    if (op.operator == '|') {
-      // func here is _filter_run
-      return op.args.slice(1).reduce(func, this.evaluate(op.args[0]))
-    } else {
-      const args = op.args.map(a => this.evaluate(a))
-      return args.slice(1).reduce(func, args[0])
-    }
+    return func(this.evaluate(op.args[0]), op.args.slice(1))
   }
 
   _filter_run(a: Result, filter: Var | Func): Result {
@@ -106,6 +101,121 @@ export default class Evaluator {
     }
     return r
   }
+
+  _op_mult_div(value: Result, args: Clause[], op: '*' | '/'): number {
+    if (typeof value != 'number') {
+      throw TypeError(`arithmetic operation ${op} only possible on strings, got ${typeof value}`)
+    }
+    for (const arg of args) {
+      if (!value) {
+        return value
+      }
+      const arg_num = this.evaluate(arg)
+      if (typeof arg_num == 'number') {
+        if (op == '*') {
+          value *= arg_num
+        } else {
+          value /= arg_num
+        }
+      } else {
+        throw TypeError(`arithmetic operation "${op}" only possible on strings, got ${typeof arg_num}`)
+      }
+    }
+    return value
+  }
+
+  _op_add(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+    let f: (a: any, b: Clause) => any
+    if (typeof value == 'number') {
+      f = this._add_numbers
+    } else if (Array.isArray(value)) {
+      f = this._add_arrays
+    } else if (is_object(value)) {
+      f = this._add_objects
+    } else {
+      throw TypeError(`unable to add ${typeof value}`)
+    }
+    return args.reduce(f.bind(this), value)
+  }
+
+  _add_numbers(a: number, b: Clause): number {
+    const v = this.evaluate(b)
+    if (typeof v != 'number'){
+      throw TypeError(`only number can be added to number, not ${typeof b}`)
+    }
+    return a + v
+  }
+
+  _add_arrays(a: Result[], b: Clause): Result[] {
+    const v = this.evaluate(b)
+    if (!Array.isArray(v)){
+      throw TypeError(`only arrays can be added to arrays, not ${typeof v}`)
+    }
+    return [...a, ...v]
+  }
+
+  _add_objects(a: {[key: string]: Result}, b: Clause): {[key: string]: Result} {
+    const v = this.evaluate(b)
+    if (typeof v != 'object' || !v){
+      throw TypeError(`only objects can be added to objects, not ${typeof v}`)
+    }
+    return {...a, ...v} as any
+  }
+
+  _op_subtract(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+    if (typeof value != 'number') {
+      throw TypeError(`only numbers can be subtracted, not ${typeof value}`)
+    }
+    return args.reduce(this._subtract_numbers.bind(this), value)
+  }
+
+  _subtract_numbers(a: number, b: Clause): number {
+    const v = this.evaluate(b)
+    if (typeof v != 'number'){
+      throw TypeError(`only numbers can be subtracted, not ${typeof b}`)
+    }
+    return a - v
+  }
+
+  _op_equals(value: Result, args: Clause[], op: '==' | '!='): boolean {
+    for (const arg of args) {
+      const next_arg = this.evaluate(arg)
+      const is_equal = smart_equals(value, next_arg)
+      if (op == '==') {
+        if (!is_equal) {
+          return false
+        }
+      } else if (is_equal) {
+        return false
+      }
+    }
+    return true
+  }
+
+  _op_in(value: Result, args: Clause[]): boolean {
+    const container = this.evaluate(args[0])
+    const container_type = smart_typeof(container)
+    if (container_type == 'object') {
+      if (typeof value != 'string') {
+        return false
+      } else {
+        return has_property(container, value)
+      }
+    } else if (container_type == 'array') {
+      return (container as Result[]).includes(value)
+    } else if (container_type == 'string') {
+      if (typeof value != 'string') {
+        return false
+      } else {
+        return (container as string).includes(value)
+      }
+    } else {
+      throw TypeError(`"in" is only possible for objects, arrays and strings, not "${container_type}`)
+    }
+  }
+
+  _op_and = (value: Result, args: Clause[]): boolean => !!(value && args.every(this.evaluate))
+  _op_or = (value: Result, args: Clause[]): boolean => !!(value || !args.every(c => !this.evaluate(c)))
 
   _modifiers(mod: Modified): Result {
     if (mod.mod == '!') {
