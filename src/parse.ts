@@ -1,4 +1,4 @@
-import {SaxesParser, SaxesTagPlain, SaxesAttributeNS} from 'saxes'
+import {SaxesParser, SaxesTagPlain, SaxesAttributeNS, StartTagForOptions, AttributeEventForOptions} from 'saxes'
 
 import type {Clause} from './expressions/build'
 
@@ -26,13 +26,13 @@ interface Template {
 }
 
 interface Attribute {
-  key: string
+  name: string
   value: RawText | RawBool | Template | Clause
 }
 
 interface Element {
   name: string
-  attributes: Attribute[]
+  attributes?: Attribute[]
   body: (Comment | RawText | Template | Element)[]
   loc: FileLocation
   doctype?: string
@@ -56,10 +56,14 @@ interface Component {
 }
 
 class Parser {
-  _parser: SaxesParser
-  _parents: (Element | Component)[] = []
+  private readonly parser: SaxesParser
+  private parents: (Element | Component)[] = []
   current!: Element | Component
-  components: (Component | ExternalComponent)[] = []
+  components: Record<string, Component | ExternalComponent> = {}
+  private tag_col = 0
+  private is_component = false
+  private attrs: Attribute[] = []
+  private props: Prop[] = []
 
   constructor(file_name: string) {
     this.current = {
@@ -68,61 +72,74 @@ class Parser {
       loc: {line: 1, col: 1},
       body: [],
     }
-    this._parser = new SaxesParser({fileName: file_name})
-    this._parser.on('error', this._on_error.bind(this))
-    this._parser.on('opentag', this._on_opentag.bind(this))
-    this._parser.on('closetag', this._on_closetag.bind(this))
-    this._parser.on('doctype', this._on_doctype.bind(this))
-    this._parser.on('text', this._on_text.bind(this))
-    this._parser.on('comment', this._on_comment.bind(this))
+    this.parser = new SaxesParser({fileName: file_name})
+    this.parser.on('error', this.on_error.bind(this))
+    this.parser.on('opentagstart', this.on_opentagstart.bind(this))
+    this.parser.on('attribute', this.on_attribute.bind(this))
+    this.parser.on('opentag', this.on_opentag.bind(this))
+    this.parser.on('closetag', this.on_closetag.bind(this))
+    this.parser.on('doctype', this.on_doctype.bind(this))
+    this.parser.on('text', this.on_text.bind(this))
+    this.parser.on('comment', this.on_comment.bind(this))
   }
 
   parse(xml: string) {
-    this._parser.write(xml).close()
+    this.parser.write(xml).close()
   }
 
-  _on_error(e: Error): void {
+  private static on_error(e: Error): void {
     console.error('ERROR:', e)
   }
 
-  _loc = (): FileLocation => ({line: this._parser.line, col: this._parser.column + 1})
+  private on_opentagstart(tag: StartTagForOptions<any>): void {
+    this.tag_col = this.parser.column - tag.name.length - 1
+    this.is_component = tag.name == 'template'
+  }
 
-  _on_opentag(tag: SaxesTagPlain): void {
+  private on_attribute(attr: AttributeEventForOptions<any>) {
+    if (this.is_component) {
+      if (attr.name != 'name' && attr.name != 'id') {
+        this.props.push({name: attr.name, default: attr.value})
+      }
+    } else {
+      this.attrs.push({name: attr.name, value: {text: attr.value as string}})
+    }
+  }
+
+  private on_opentag(tag: SaxesTagPlain): void {
     let new_tag: Element | Component
-    if (tag.name == 'template') {
+    const loc: FileLocation = {line: this.parser.line, col: this.tag_col}
+    if (this.is_component) {
       const name: string | undefined = tag.attributes.name || tag.attributes.id
       if (!name) {
         throw Error('"name" or "id" is required for "<template>" elements to be used as components')
       }
       new_tag = {
         name,
-        props: [],
-        loc: this._loc(),
+        props: this.props,
+        loc,
         body: [],
       }
-      this.components.push(new_tag)
+      this.props = []
+      this.components[name] = new_tag
     } else {
       new_tag = {
         name: tag.name,
-        attributes: Object.entries(tag.attributes).map(([k, v]) => this._map_attributes(k, v)),
-        loc: this._loc(),
+        loc,
         body: [],
       }
+      if (this.attrs.length) {
+        new_tag.attributes = this.attrs
+      }
+      this.attrs = []
       this.current.body.push(new_tag)
     }
-    this._parents.push(this.current)
+    this.parents.push(this.current)
     this.current = new_tag
   }
 
-  _map_attributes(key: string, value: string | SaxesAttributeNS): Attribute {
-    return {
-      key,
-      value: {text: value as string},
-    }
-  }
-
-  _on_closetag(tag: SaxesTagPlain): void {
-    const parent = this._parents.pop()
+  private on_closetag(): void {
+    const parent = this.parents.pop()
     if (parent) {
       this.current = parent
     } else {
@@ -130,8 +147,8 @@ class Parser {
     }
   }
 
-  _on_doctype(doctype: string): void {
-    if (this._parents.length) {
+  private on_doctype(doctype: string): void {
+    if (this.parents.length) {
       throw Error('doctype can only be set on the root element')
     } else if ('props' in this.current) {
       // shouldn't happen
@@ -141,11 +158,11 @@ class Parser {
     }
   }
 
-  _on_text(text: string): void {
+  private on_text(text: string): void {
     this.current.body.push({text})
   }
 
-  _on_comment(comment: string): void {
+  private on_comment(comment: string): void {
     // TODO starts with "keep:"
     this.current.body.push({comment})
   }

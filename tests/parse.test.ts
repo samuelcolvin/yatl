@@ -4,11 +4,11 @@ import each from 'jest-each'
 const expected_elements: [string, any][] = [
   [
     '<div>hello</div>',
-    {body: [{name: 'div', attributes: [], loc: {line: 1, col: 6}, body: [{text: 'hello'}]}], components: []},
+    {body: [{name: 'div', attributes: [], loc: {line: 1, col: 1}, body: [{text: 'hello'}]}], components: {}},
   ],
   [
-    '<template name="Testing">foobar</template>',
-    {body: [], components: [{name: 'Testing', props: [], loc: {line: 1, col: 26}, body: [{text: 'foobar'}]}]},
+    '  <template name="Testing">foobar</template>',
+    {body: [], components: {'Testing': {name: 'Testing', props: [], loc: {line: 1, col: 3}, body: [{text: 'foobar'}]}}},
   ],
 ]
 
