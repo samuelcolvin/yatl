@@ -47,8 +47,8 @@ export interface Token {
 const numbers = new Set('1234567890')
 
 class Tokenize {
-  exp: string
-  index: number
+  private readonly exp: string
+  private index: number
 
   constructor(exp: string) {
     this.exp = exp.trim()
@@ -58,7 +58,7 @@ class Tokenize {
   tokenize(): Token[] {
     const tokens: Token[] = []
     while (this.index < this.exp.length) {
-      const t = this._get_token()
+      const t = this.get_token()
       if (t) {
         tokens.push(t)
       }
@@ -67,7 +67,7 @@ class Tokenize {
     return tokens
   }
 
-  _get_token(): Token | undefined {
+  private get_token(): Token | undefined {
     const letter = this.exp[this.index]
 
     if (/\s/.test(letter)) {
@@ -85,17 +85,17 @@ class Tokenize {
     if (single_ops.has(letter as TokenType)) {
       return {type: letter as TokenType}
     } else if (numbers.has(letter)) {
-      return this._number(letter)
+      return this.number(letter)
     } else if (/[a-zA-Z]/.test(letter)) {
-      return this._symbol(letter)
+      return this.symbol(letter)
     } else if (letter == '"' || letter == "'") {
-      return this._string(letter)
+      return this.string(letter)
     } else {
       throw Error(`Unable to tokenize expressing at char ${this.index + 1} "${letter}"`)
     }
   }
 
-  _number(letter: string): Token {
+  private number(letter: string): Token {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
@@ -121,7 +121,7 @@ class Tokenize {
     }
   }
 
-  _symbol(letter: string): Token {
+  private symbol(letter: string): Token {
     let value = letter
     while (true) {
       const new_letter = this.exp[this.index + 1]
@@ -138,7 +138,7 @@ class Tokenize {
     }
   }
 
-  _string(letter: string): Token {
+  private string(letter: string): Token {
     let value = ''
     let new_letter = ''
     const start_pos = this.index + 1

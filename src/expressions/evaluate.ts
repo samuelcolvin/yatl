@@ -9,9 +9,9 @@ type TemplateFunction = (...args: any[]) => Result | TemplateFunction
 export type Functions = LookupType<TemplateFunction>
 
 export default class Evaluator {
-  context: Context
-  functions: Functions
-  operator_functions: Record<OperatorType, (value: Result, args: Clause[]) => Result>
+  private readonly context: Context
+  private readonly functions: Functions
+  private readonly operator_functions: Record<OperatorType, (value: Result, args: Clause[]) => Result>
 
   constructor(context: Context, functions: Functions) {
     this.context = context
@@ -19,23 +19,23 @@ export default class Evaluator {
     this.evaluate = this.evaluate.bind(this)
 
     this.operator_functions = {
-      '|': (value, args) => args.reduce((a, b) => this._filter_run(a, b as Var | Func), value),
-      '*': (value, args) => this._op_mult_div(value, args, '*'),
-      '/': (value, args) => this._op_mult_div(value, args, '/'),
-      '+': this._op_add.bind(this),
-      '-': this._op_subtract.bind(this),
-      in: this._op_in.bind(this),
-      '==': this._op_equals.bind(this),
-      '!=': this._op_not_equals.bind(this),
-      '&&': this._op_and.bind(this),
-      '||': this._op_or.bind(this),
+      '|': (value, args) => args.reduce((a, b) => this.filter_run(a, b as Var | Func), value),
+      '*': (value, args) => this.op_mult_div(value, args, '*'),
+      '/': (value, args) => this.op_mult_div(value, args, '/'),
+      '+': this.op_add.bind(this),
+      '-': this.op_subtract.bind(this),
+      in: this.op_in.bind(this),
+      '==': this.op_equals.bind(this),
+      '!=': this.op_not_equals.bind(this),
+      '&&': this.op_and.bind(this),
+      '||': this.op_or.bind(this),
     }
   }
 
   evaluate(c: Clause): Result {
     switch (c.type) {
       case 'var':
-        return this._var(c)
+        return this.var(c)
       case 'str':
       case 'num':
       case 'bool':
@@ -43,22 +43,22 @@ export default class Evaluator {
       case 'list':
         return c.elements.map(e => this.evaluate(e))
       case 'func':
-        return this._func_run(c)
+        return this.func_run(c)
       case 'mod':
-        return this._modifiers(c)
+        return this.modifiers(c)
       case 'operator':
-        return this._operation(c)
+        return this.operation(c)
       default:
         shouldnt_happen(c)
     }
   }
 
-  _var(v: Var): Result {
-    return this._lookup_value(v, this.context, 'context')
+  private var(v: Var): Result {
+    return this.lookup_value(v, this.context, 'context')
   }
 
-  _func_run(f: Func): Result {
-    const func = this._func_get(f)
+  private func_run(f: Func): Result {
+    const func = this.func_get(f)
     const r = func(...f.args.map(a => this.evaluate(a)))
     if (typeof r == 'function') {
       throw Error('filter functions may not be called directly')
@@ -66,8 +66,8 @@ export default class Evaluator {
     return r
   }
 
-  _func_get(f: Func): TemplateFunction {
-    const func = this._lookup_value(f.var, this.functions, 'functions')
+  private func_get(f: Func): TemplateFunction {
+    const func = this.lookup_value(f.var, this.functions, 'functions')
 
     if (typeof func == 'function') {
       return func
@@ -78,17 +78,17 @@ export default class Evaluator {
     }
   }
 
-  _operation(op: Operation): Result {
+  private operation(op: Operation): Result {
     const func = this.operator_functions[op.operator]
     return func(this.evaluate(op.args[0]), op.args.slice(1))
   }
 
-  _filter_run(a: Result, filter: Var | Func): Result {
+  private filter_run(a: Result, filter: Var | Func): Result {
     let func: TemplateFunction
     if (filter.type == 'var') {
-      func = this._func_get({type: 'func', var: filter, args: []})
+      func = this.func_get({type: 'func', var: filter, args: []})
     } else {
-      const outer_func = this._func_get(filter)
+      const outer_func = this.func_get(filter)
       const func_ = outer_func(...filter.args.map(a => this.evaluate(a)))
       if (typeof func_ != 'function') {
         throw Error('filter functions must return another function')
@@ -102,7 +102,7 @@ export default class Evaluator {
     return r
   }
 
-  _op_mult_div(value: Result, args: Clause[], op: '*' | '/'): number {
+  private op_mult_div(value: Result, args: Clause[], op: '*' | '/'): number {
     if (typeof value != 'number') {
       throw TypeError(`arithmetic operation ${op} only possible on numbers, got ${typeof value}`)
     }
@@ -124,21 +124,21 @@ export default class Evaluator {
     return value
   }
 
-  _op_add(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+  private op_add(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
     const value_type = smart_typeof(value)
     switch (value_type) {
       case 'number':
-        return args.reduce(this._add_numbers.bind(this), value as number)
+        return args.reduce(this.add_numbers.bind(this), value as number)
       case 'array':
-        return args.reduce(this._add_arrays.bind(this), value as any[])
+        return args.reduce(this.add_arrays.bind(this), value as any[])
       case 'object':
-        return args.reduce(this._add_objects.bind(this), value as {[key: string]: Result})
+        return args.reduce(this.add_objects.bind(this), value as {[key: string]: Result})
       default:
         throw TypeError(`unable to add ${value_type}s`)
     }
   }
 
-  _add_numbers(a: number, b: Clause): number {
+  private add_numbers(a: number, b: Clause): number {
     const v = this.evaluate(b)
     if (typeof v != 'number') {
       throw TypeError(`only number can be added to number, not ${typeof b}`)
@@ -146,7 +146,7 @@ export default class Evaluator {
     return a + v
   }
 
-  _add_arrays(a: Result[], b: Clause): Result[] {
+  private add_arrays(a: Result[], b: Clause): Result[] {
     const v = this.evaluate(b)
     if (!Array.isArray(v)) {
       throw TypeError(`only arrays can be added to arrays, not ${typeof v}`)
@@ -154,7 +154,7 @@ export default class Evaluator {
     return [...a, ...v]
   }
 
-  _add_objects(a: {[key: string]: Result}, b: Clause): {[key: string]: Result} {
+  private add_objects(a: {[key: string]: Result}, b: Clause): {[key: string]: Result} {
     const v = this.evaluate(b)
     if (typeof v != 'object' || !v) {
       throw TypeError(`only objects can be added to objects, not ${typeof v}`)
@@ -162,14 +162,14 @@ export default class Evaluator {
     return {...a, ...v} as any
   }
 
-  _op_subtract(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+  private op_subtract(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
     if (typeof value != 'number') {
       throw TypeError(`only numbers can be subtracted, not ${typeof value}`)
     }
-    return args.reduce(this._subtract_numbers.bind(this), value)
+    return args.reduce(this.subtract_numbers.bind(this), value)
   }
 
-  _subtract_numbers(a: number, b: Clause): number {
+  private subtract_numbers(a: number, b: Clause): number {
     const v = this.evaluate(b)
     if (typeof v != 'number') {
       throw TypeError(`only numbers can be subtracted, not ${typeof b}`)
@@ -177,7 +177,7 @@ export default class Evaluator {
     return a - v
   }
 
-  _op_in(value: Result, args: Clause[]): boolean {
+  private op_in(value: Result, args: Clause[]): boolean {
     const container = this.evaluate(args[0])
     const container_type = smart_typeof(container)
     if (container_type == 'object') {
@@ -199,12 +199,14 @@ export default class Evaluator {
     }
   }
 
-  _op_equals = (value: Result, args: Clause[]): boolean => args.every(a => smart_equals(value, this.evaluate(a)))
-  _op_not_equals = (value: Result, args: Clause[]): boolean => args.every(a => !smart_equals(value, this.evaluate(a)))
-  _op_and = (value: Result, args: Clause[]): boolean => !!(value && args.every(this.evaluate))
-  _op_or = (value: Result, args: Clause[]): boolean => !!(value || !args.every(c => !this.evaluate(c)))
+  private op_equals = (value: Result, args: Clause[]): boolean =>
+    args.every(a => smart_equals(value, this.evaluate(a)))
+  private op_not_equals = (value: Result, args: Clause[]): boolean =>
+    args.every(a => !smart_equals(value, this.evaluate(a)))
+  private op_and = (value: Result, args: Clause[]): boolean => !!(value && args.every(this.evaluate))
+  private op_or = (value: Result, args: Clause[]): boolean => !!(value || !args.every(c => !this.evaluate(c)))
 
-  _modifiers(mod: Modified): Result {
+  private modifiers(mod: Modified): Result {
     if (mod.mod == '!') {
       return !this.evaluate(mod.element)
     } else {
@@ -218,7 +220,7 @@ export default class Evaluator {
     }
   }
 
-  _lookup_value(v: Var, namespace: Record<string, any>, namespace_name: string): any {
+  private lookup_value(v: Var, namespace: Record<string, any>, namespace_name: string): any {
     let value = namespace[v.symbol]
     if (typeof value == 'undefined') {
       throw Error(`"${v.symbol}" not found in ${namespace_name}`)
