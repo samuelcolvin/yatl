@@ -1,26 +1,32 @@
-import {parse_file} from '../src/parse'
+import {load_base_template} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, any][] = [
-  ['<div>hello</div>', {body: [{name: 'div', loc: {line: 1, col: 1}, body: [{text: 'hello'}]}], components: {}}],
+  [
+    '<div>hello</div>',
+    {body: [{name: 'div', loc: {line: 1, col: 1}, attributes: [], body: [{text: 'hello'}]}], components: {}},
+  ],
   [
     '   <div>hello</div>',
-    {body: [{text: '   '}, {name: 'div', loc: {line: 1, col: 4}, body: [{text: 'hello'}]}], components: {}},
+    {
+      body: [{text: '   '}, {name: 'div', loc: {line: 1, col: 4}, attributes: [], body: [{text: 'hello'}]}],
+      components: {},
+    },
   ],
   [
     '<template name="Testing">foobar</template>',
     {body: [], components: {Testing: {name: 'Testing', props: [], loc: {line: 1, col: 1}, body: [{text: 'foobar'}]}}},
   ],
   [
-    '<template name="MyComponent" foobar="">foobar {{ x }}</template>\n\n<div>more</div>',
+    '<template name="MyComponent" foobar="">foobar {{ foobar }}</template>\n\n<div>more</div>',
     {
-      body: [{text: '\n\n'}, {name: 'div', loc: {line: 3, col: 1}, body: [{text: 'more'}]}],
+      body: [{text: '\n\n'}, {name: 'div', loc: {line: 3, col: 1}, attributes: [], body: [{text: 'more'}]}],
       components: {
         MyComponent: {
           name: 'MyComponent',
           props: [{name: 'foobar'}],
           loc: {line: 1, col: 1},
-          body: [{text: 'foobar {{ x }}'}],
+          body: [{text: 'foobar {{ foobar }}'}],
         },
       },
     },
@@ -59,20 +65,75 @@ const expected_elements: [string, any][] = [
         Testing: {
           name: 'Testing',
           path: 'path/to/component',
+          used: false,
+        },
+      },
+    },
+  ],
+  [
+    '<template name="UseComponent" foo="">foo {{ foo }}</template>\n<UseComponent foo="xxx"/>',
+    {
+      body: [
+        {text: '\n'},
+        {
+          name: 'UseComponent',
+          loc: {line: 2, col: 1},
+          body: [],
+          attributes: [{name: 'foo', value: {text: 'xxx'}}],
+          component: {
+            name: 'UseComponent',
+            props: [{name: 'foo'}],
+            loc: {line: 1, col: 1},
+            body: [{text: 'foo {{ foo }}'}],
+          },
+        },
+      ],
+      components: {
+        UseComponent: {
+          name: 'UseComponent',
+          props: [{name: 'foo'}],
+          loc: {line: 1, col: 1},
+          body: [{text: 'foo {{ foo }}'}],
+        },
+      },
+    },
+  ],
+  [
+    '<template name="UseExComponent"/>\n<UseExComponent foo="xxx"/>',
+    {
+      body: [
+        {text: '\n'},
+        {
+          name: 'UseExComponent',
+          loc: {line: 2, col: 1},
+          body: [],
+          attributes: [{name: 'foo', value: {text: 'xxx'}}],
+          component: {
+            name: 'UseExComponent',
+            path: null,
+            used: true,
+          },
+        },
+      ],
+      components: {
+        UseExComponent: {
+          name: 'UseExComponent',
+          path: null,
+          used: true,
         },
       },
     },
   ],
 ]
 
-describe('parse_file', () => {
+describe('load_base_template', () => {
   each(expected_elements).test('expected_elements %j', (xml, expected_elements) => {
-    expect(parse_file('testing.html', xml)).toStrictEqual(expected_elements)
+    // console.log(JSON.stringify(load_base_template('testing.html', xml), null, 2))
+    expect(load_base_template('testing.html', xml)).toStrictEqual(expected_elements)
   })
 
   // test('create-expected_elements', () => {
-  //   const new_expected_elements = expected_elements.map(v => [v[0], parse_file('', v[0])])
+  //   const new_expected_elements = expected_elements.map(v => [v[0], load_base_template('', v[0])])
   //   console.log('const expected_elements: [string, any][] = %j', new_expected_elements)
-  //   // console.log(JSON.stringify(new_expected_elements, null, 2))
   // })
 })

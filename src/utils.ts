@@ -4,6 +4,8 @@ export function shouldnt_happen(type: never): never {
   throw Error(`Internal Error: got unexpected type ${JSON.stringify(type)}`)
 }
 
+export const is_upper_case = (name: string): boolean => name == name.toUpperCase()
+
 type Type =
   | 'null'
   | 'undefined'

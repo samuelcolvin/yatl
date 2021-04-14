@@ -1,5 +1,6 @@
 import {SaxesParser, SaxesTagPlain, StartTagForOptions, AttributeEventForOptions} from 'saxes'
 
+import {is_upper_case} from './utils'
 import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
 
@@ -9,44 +10,46 @@ interface FileLocation {
 }
 
 interface TextRaw {
-  text: string
+  readonly text: string
 }
 
 interface Comment {
-  comment: string
+  readonly comment: string
 }
 
 interface TextTemplate {
-  template: string
-  clauses: Clause[]
-  loc?: FileLocation
+  readonly template: string
+  readonly clauses: Clause[]
+  readonly loc: FileLocation
 }
 
 interface Attribute {
-  name: string
-  value: TextRaw | TextTemplate | Clause
+  readonly name: string
+  readonly value: TextRaw | TextTemplate | Clause
 }
 
 interface Element {
-  name: string
-  attributes?: Attribute[]
-  body: (Comment | TextRaw | TextTemplate | Element)[]
-  loc: FileLocation
+  readonly name: string
+  readonly loc: FileLocation
+  readonly attributes: Attribute[]
+  readonly body: (Comment | TextRaw | TextTemplate | Element)[]
   doctype?: string
+  component?: Component | ExternalComponent
 }
 
 interface Prop {
-  name: string
-  default?: string
+  readonly name: string
+  readonly default?: string
 }
 
 interface ExternalComponent {
-  name: string
-  readonly path: string | null
+  readonly name: string
+  path: string | null
+  used: boolean
 }
 
 interface Component {
-  name: string
+  readonly name: string
   props: Prop[]
   body: (Comment | TextRaw | TextTemplate | Element)[]
   loc: FileLocation
@@ -119,24 +122,41 @@ class Parser {
     if (this.is_component) {
       const name: string | undefined = tag.attributes.name || tag.attributes.id
       if (!name) {
-        throw Error('"name" or "id" is required for "<template>" elements to be used as components')
+        throw Error('"name" or "id" is required for "<template>" elements when creating components')
+      }
+      if (!/^[A-Z][a-zA-Z0-9]+$/.test(name)) {
+        throw Error('component names must be CamelCase: start with a capital, contain only letters and numbers')
       }
       if (tag.isSelfClosing) {
-        this.components[name] = {name, path: tag.attributes.path || null}
+        this.components[name] = {name, path: tag.attributes.path || null, used: false}
       } else {
         new_tag = {name, props: this.props, loc, body: []}
         this.components[name] = new_tag
       }
       this.props = []
     } else {
-      new_tag = {
-        name: tag.name,
-        loc,
-        body: [],
+      const name = tag.name
+      let component: Component | ExternalComponent | null = null
+      if (is_upper_case(name.substr(0, 1))) {
+        // assume this is a component
+        component = this.components[name] || null
+        if (!component) {
+          throw Error(
+            `"${name}" appears to be component and is not defined or imported in this file. ` +
+              `Either define the component or, if you meant to refer to a standard HTML tag, use the lower case name.`,
+          )
+        }
+        if ('props' in component) {
+          this.check_missing_props(component, this.attrs)
+        } else if (!component.used) {
+          component.used = true
+        }
       }
-      if (this.attrs.length) {
-        new_tag.attributes = this.attrs
+      new_tag = {name: name, loc, body: [], attributes: this.attrs}
+      if (component) {
+        new_tag.component = component
       }
+
       this.attrs = []
       this.current.body.push(new_tag)
     }
@@ -175,9 +195,17 @@ class Parser {
     // TODO starts with "keep:"
     this.current.body.push({comment})
   }
+
+  private check_missing_props(component: Component, attrs: Attribute[]): void {
+    const attr_names = new Set(attrs.map(a => a.name))
+    const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name))
+    if (missing_props.length) {
+      throw Error(`${name} has the following missing props: ${missing_props.join(', ')}`)
+    }
+  }
 }
 
-export function parse_file(file_name: string, xml: string): any {
+export function load_base_template(file_name: string, xml: string): any {
   const parser = new Parser(file_name)
   parser.parse(xml)
   return {
