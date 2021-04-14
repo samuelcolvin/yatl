@@ -36,6 +36,19 @@ const evaluate_expect: [string, any][] = [
   ['2|one_argument', 4],
   ['namespace.add(1, 2)', 3],
   ['"bar"|filter_function("foo")', 'foobar'],
+  ['1 == 1', true],
+  ['1 == 2', false],
+  ['"1" == "1"', true],
+  ['"1" == 1', false],
+  ['a.c.d == a.c.d', true],
+  ['a.c.e == a.c.e', true],
+  ['a.c.d == a.c.e', false],
+  ['a == a', true],
+  ['an_array == an_array', true],
+  ['an_array == a', false],
+  ['(1, 2, 3) == (1, 2, 3)', true],
+  ['(1, 2, 3) == (1, 2)', false],
+  ['(1, 2, 3) == (1, 3, 2)', false],
 ]
 const text_context: Context = {
   a: {
