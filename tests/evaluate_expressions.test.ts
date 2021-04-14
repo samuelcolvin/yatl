@@ -16,6 +16,7 @@ const evaluate_expect: [string, any][] = [
   ['an_array[one]', 'second-element'],
   ['an_array[2].snap', 'snap-value'],
   ['an_array[2]', {snap: 'snap-value'}],
+  ['an_array.?[3]', undefined],
   ['2 + 1', 3],
   ['1 - 2', -1],
   ['2 - 1', 1],
@@ -36,6 +37,10 @@ const evaluate_expect: [string, any][] = [
   ['2|one_argument', 4],
   ['namespace.add(1, 2)', 3],
   ['"bar"|filter_function("foo")', 'foobar'],
+  // TODO:
+  // ['!is_true', false],
+  // ['!!is_true', true],
+  // ['!is_null', true],
   ['1 == 1', true],
   ['1 != 1', false],
   ['1 == 2', false],
@@ -61,7 +66,10 @@ const evaluate_expect: [string, any][] = [
   ['11 in (1, 2, 3)', false],
   ['"b" in a', true],
   ['"bb" in a', false],
+  ['1 in a', false],
   ['is_null == is_null', true],
+  ['is_null == a.?x', false],
+  ['a.?x.?q == a.?x', true],
   ['is_null == 1', false],
   ['"first-element" in an_array', true],
   ['"other" in an_array', false],
@@ -85,7 +93,6 @@ const text_context: Context = {
   is_false: false,
   is_true: true,
   is_null: null,
-  is_undefined: undefined,
 }
 const test_functions: Functions = {
   no_args: () => 42,
