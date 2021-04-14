@@ -1,25 +1,22 @@
-import {SaxesParser, SaxesTagPlain, SaxesAttributeNS, StartTagForOptions, AttributeEventForOptions} from 'saxes'
+import {SaxesParser, SaxesTagPlain, StartTagForOptions, AttributeEventForOptions} from 'saxes'
 
 import type {Clause} from './expressions/build'
+import {build_clause} from './expressions'
 
 interface FileLocation {
   line: number
   col: number
 }
 
-interface RawText {
+interface TextRaw {
   text: string
-}
-
-interface RawBool {
-  bool: boolean
 }
 
 interface Comment {
   comment: string
 }
 
-interface Template {
+interface TextTemplate {
   template: string
   clauses: Clause[]
   loc?: FileLocation
@@ -27,13 +24,13 @@ interface Template {
 
 interface Attribute {
   name: string
-  value: RawText | RawBool | Template | Clause
+  value: TextRaw | TextTemplate | Clause
 }
 
 interface Element {
   name: string
   attributes?: Attribute[]
-  body: (Comment | RawText | Template | Element)[]
+  body: (Comment | TextRaw | TextTemplate | Element)[]
   loc: FileLocation
   doctype?: string
 }
@@ -45,20 +42,20 @@ interface Prop {
 
 interface ExternalComponent {
   name: string
-  path: string
+  readonly path: string | null
 }
 
 interface Component {
   name: string
   props: Prop[]
-  body: (Comment | RawText | Template | Element)[]
+  body: (Comment | TextRaw | TextTemplate | Element)[]
   loc: FileLocation
 }
 
 class Parser {
   private readonly parser: SaxesParser
   private parents: (Element | Component)[] = []
-  current!: Element | Component
+  current: Element | Component
   components: Record<string, Component | ExternalComponent> = {}
   private tag_col = 0
   private is_component = false
@@ -72,7 +69,7 @@ class Parser {
       loc: {line: 1, col: 1},
       body: [],
     }
-    this.parser = new SaxesParser({fileName: file_name})
+    this.parser = new SaxesParser({fileName: file_name, fragment: true})
     this.parser.on('error', this.on_error.bind(this))
     this.parser.on('opentagstart', this.on_opentagstart.bind(this))
     this.parser.on('attribute', this.on_attribute.bind(this))
@@ -87,7 +84,7 @@ class Parser {
     this.parser.write(xml).close()
   }
 
-  private static on_error(e: Error): void {
+  private on_error(e: Error): void {
     console.error('ERROR:', e)
   }
 
@@ -97,31 +94,40 @@ class Parser {
   }
 
   private on_attribute(attr: AttributeEventForOptions<any>) {
+    const {name, value} = attr
     if (this.is_component) {
-      if (attr.name != 'name' && attr.name != 'id') {
-        this.props.push({name: attr.name, default: attr.value})
+      if (name != 'name' && name != 'id' && name != 'path') {
+        // TODO allow optional empty string via `foobar:optional=""`, prevent names ending with :
+        if (value == '') {
+          this.props.push({name})
+        } else {
+          this.props.push({name, default: value})
+        }
       }
     } else {
-      this.attrs.push({name: attr.name, value: {text: attr.value as string}})
+      if (name.endsWith(':')) {
+        this.attrs.push({name: name.slice(0, -1), value: build_clause(value)})
+      } else {
+        this.attrs.push({name, value: {text: value}})
+      }
     }
   }
 
   private on_opentag(tag: SaxesTagPlain): void {
-    let new_tag: Element | Component
+    let new_tag: Element | Component | null = null
     const loc: FileLocation = {line: this.parser.line, col: this.tag_col}
     if (this.is_component) {
       const name: string | undefined = tag.attributes.name || tag.attributes.id
       if (!name) {
         throw Error('"name" or "id" is required for "<template>" elements to be used as components')
       }
-      new_tag = {
-        name,
-        props: this.props,
-        loc,
-        body: [],
+      if (tag.isSelfClosing) {
+        this.components[name] = {name, path: tag.attributes.path || null}
+      } else {
+        new_tag = {name, props: this.props, loc, body: []}
+        this.components[name] = new_tag
       }
       this.props = []
-      this.components[name] = new_tag
     } else {
       new_tag = {
         name: tag.name,
@@ -134,8 +140,11 @@ class Parser {
       this.attrs = []
       this.current.body.push(new_tag)
     }
+
     this.parents.push(this.current)
-    this.current = new_tag
+    if (new_tag) {
+      this.current = new_tag
+    }
   }
 
   private on_closetag(): void {

@@ -2,7 +2,7 @@ import each from 'jest-each'
 
 import type {Token} from '../src/expressions/tokenize'
 import build_expression, {build_groups, build_chains, build_functions, MixedElement} from '../src/expressions/build'
-import {build} from '../src/expressions'
+import {build_clause} from '../src/expressions'
 
 import * as utils from './utils'
 
@@ -192,7 +192,7 @@ describe('build-e2e', () => {
   test('simple_build', () => {
     const expression = '1 + 3 || foobar(1, spanner)'
     // console.log(JSON.stringify(build(expression), null, 2))
-    expect(build(expression)).toEqual({
+    expect(build_clause(expression)).toEqual({
       type: 'operator',
       operator: '||',
       args: [
@@ -217,7 +217,7 @@ describe('build-e2e', () => {
   })
 
   each(expected_e2e).test('expected_e2e %s', (expression, expected_compact) => {
-    const clause = build(expression)
+    const clause = build_clause(expression)
     // console.log('clause: %o, compact: %j', clause, utils.clause_as_compact(clause))
     const expected = utils.compact_as_clause(expected_compact)
     expect(clause).toStrictEqual(expected)
