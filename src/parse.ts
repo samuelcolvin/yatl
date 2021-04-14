@@ -5,8 +5,8 @@ import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
 
 interface FileLocation {
-  line: number
-  col: number
+  readonly line: number
+  readonly col: number
 }
 
 interface TextRaw {
@@ -52,9 +52,9 @@ interface ExternalComponent {
 
 interface Component {
   readonly name: string
-  props: Prop[]
-  body: Body
-  loc: FileLocation
+  readonly props: Prop[]
+  readonly body: Body
+  readonly loc: FileLocation
 }
 
 type FileComponents = {[key: string]: Component | ExternalComponent}
@@ -64,9 +64,10 @@ class FileParser {
   private parents: (Element | Component)[] = []
   current: Element | Component
   components: FileComponents = {}
+  private external_component_tags: Element[] = [] // elements referencing external components
   private tag_col = 0
   private is_component = false
-  private attrs: Attribute[] = []
+  private attributes: Attribute[] = []
   private props: Prop[] = []
 
   constructor(file_name: string) {
@@ -91,6 +92,21 @@ class FileParser {
     this.parser.write(xml).close()
   }
 
+  check() {
+    /**
+     * check the validity of the template, in particular:
+     * - check tags match the props of their component where applicable
+     */
+    for (const tag of this.external_component_tags) {
+      const component = tag.component as Component | ExternalComponent
+      if ('props' in component) {
+        this.check_missing_props(tag.name, component, tag.attributes)
+      } else {
+        throw Error(`Component ${tag.name} not loaded`)
+      }
+    }
+  }
+
   private on_error(e: Error): void {
     console.error('ERROR:', e)
   }
@@ -113,9 +129,9 @@ class FileParser {
       }
     } else {
       if (name.endsWith(':')) {
-        this.attrs.push({name: name.slice(0, -1), value: build_clause(value)})
+        this.attributes.push({name: name.slice(0, -1), value: build_clause(value)})
       } else {
-        this.attrs.push({name, value: {text: value}})
+        this.attributes.push({name, value: {text: value}})
       }
     }
   }
@@ -141,6 +157,7 @@ class FileParser {
     } else {
       const name = tag.name
       let component: Component | ExternalComponent | null = null
+      let external = false
       if (is_upper_case(name.substr(0, 1))) {
         // assume this is a component
         component = this.components[name] || null
@@ -151,17 +168,21 @@ class FileParser {
           )
         }
         if ('props' in component) {
-          this.check_missing_props(component, this.attrs)
-        } else if (!component.used) {
+          this.check_missing_props(name, component, this.attributes)
+        } else {
+          external = true
           component.used = true
         }
       }
-      new_tag = {name: name, loc, body: [], attributes: this.attrs}
+      new_tag = {name: name, loc, body: [], attributes: this.attributes}
       if (component) {
         new_tag.component = component
+        if (external) {
+          this.external_component_tags.push(new_tag)
+        }
       }
 
-      this.attrs = []
+      this.attributes = []
       this.current.body.push(new_tag)
     }
 
@@ -200,11 +221,11 @@ class FileParser {
     this.current.body.push({comment})
   }
 
-  private check_missing_props(component: Component, attrs: Attribute[]): void {
-    const attr_names = new Set(attrs.map(a => a.name))
-    const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name))
+  private check_missing_props(name: string, component: Component, tag_attrs: Attribute[]): void {
+    const attr_names = new Set(tag_attrs.map(a => a.name))
+    const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name)).map(p => p.name)
     if (missing_props.length) {
-      throw Error(`${name} has the following missing props: ${missing_props.join(', ')}`)
+      throw Error(`The following properties were omitted when calling ${name}: ${missing_props.join(', ')}`)
     }
   }
 }
@@ -222,6 +243,7 @@ class TemplateLoader {
 
   async load(): Promise<Body> {
     const parser = await this.parse_file(this.base_file_path)
+    parser.check()
     return parser.current.body
   }
 
@@ -256,6 +278,7 @@ class TemplateLoader {
 
   private async load_file_components(file_path: string, components: Set<string>): Promise<FileComponents> {
     const parser = await this.parse_file(file_path)
+    // TODO check all components are defined and raise an error if not
     return Object.fromEntries(Object.entries(parser.components).filter(([k,]) => components.has(k)))
   }
 }
