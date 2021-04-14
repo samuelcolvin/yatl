@@ -9,18 +9,8 @@ interface FileLocation {
   readonly col: number
 }
 
-interface TextRaw {
-  readonly text: string
-}
-
 interface Comment {
   readonly comment: string
-}
-
-interface TextTemplate {
-  readonly template: string
-  readonly clauses: Clause[]
-  readonly loc: FileLocation
 }
 
 interface Prop {
@@ -42,10 +32,10 @@ interface ComponentDefinition {
 
 interface Attribute {
   readonly name: string
-  readonly value: TextRaw | TextTemplate | Clause
+  readonly value: (string | Clause)[]
 }
 
-export type Body = (Comment | TextRaw | TextTemplate | Element)[]
+export type Body = (Comment | string | Clause | Element)[]
 
 interface Element {
   readonly name: string
@@ -130,9 +120,9 @@ class FileParser {
       }
     } else {
       if (name.endsWith(':')) {
-        this.attributes.push({name: name.slice(0, -1), value: build_clause(value)})
+        this.attributes.push({name: name.slice(0, -1), value: [build_clause(value)]})
       } else {
-        this.attributes.push({name, value: {text: value}})
+        this.attributes.push({name, value: this.parse_string(value)})
       }
     }
   }
@@ -163,7 +153,7 @@ class FileParser {
       const {name} = tag
       let component: ComponentDefinition | ComponentReference | null = null
       let external = false
-      if (is_upper_case(name.substr(0, 1))) {
+      if (is_upper_case(name[0])) {
         // assume this is a component
         component = this.components[name] || null
         if (!component) {
@@ -218,12 +208,47 @@ class FileParser {
   }
 
   private on_text(text: string): void {
-    this.current.body.push({text})
+    this.current.body.push(...this.parse_string(text))
   }
 
   private on_comment(comment: string): void {
     // TODO starts with "keep:"
     this.current.body.push({comment})
+  }
+
+  private parse_string(text: string): (string | Clause)[] {
+    let chunk_start = 0
+    const parts: (string | Clause)[] = []
+    while (true) {
+      // if "{{" is not found in the rest of the string, indoxOf returns -1, so clause_start will equal 1
+      const chunk_end = text.indexOf('{{', chunk_start)
+      if (chunk_end == -1) {
+        break
+      }
+      parts.push(text.substr(chunk_start, chunk_end - chunk_start))
+
+      let string_start: string | null = null
+      for (let index = chunk_end + 2; index < text.length; index++) {
+        const letter = text[index]
+        if (!string_start) {
+          // not (yet) inside a string inside the clause
+          if (letter == '}' && text[index - 1] == '}') {
+            // found the end of the expression!
+            const clause = text.substr(chunk_end + 2, index - chunk_end - 3)
+            parts.push(build_clause(clause))
+            chunk_start = index + 1
+            break
+          } else if (letter == '"' || letter == "'") {
+            string_start = letter
+          }
+        } else if (letter == string_start && text[index - 1] != '\\') {
+          // end of this substring
+          string_start = null
+        }
+      }
+    }
+    parts.push(text.substr(chunk_start, text.length - 1))
+    return parts.filter(p => p)
   }
 
   private check_missing_props(name: string, component: ComponentDefinition, tag_attrs: Attribute[]): void {

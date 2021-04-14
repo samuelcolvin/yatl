@@ -2,11 +2,19 @@ import {load_base_template, Body, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, Body][] = [
-  ['<div>hello</div>', [{name: 'div', loc: {line: 1, col: 1}, attributes: [], body: [{text: 'hello'}]}]],
+  ['<div>hello</div>', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
   [
-    '   <div>hello</div>',
-    [{text: '   '}, {name: 'div', loc: {line: 1, col: 4}, attributes: [], body: [{text: 'hello'}]}],
+    '<div>before{{ name }}after</div>',
+    [
+      {
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: ['before', {type: 'var', symbol: 'name', chain: []}, 'after'],
+        attributes: [],
+      },
+    ],
   ],
+  ['   <div>hello</div>', ['  ', {name: 'div', loc: {line: 1, col: 4}, body: ['hell'], attributes: []}]],
   ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
@@ -14,18 +22,20 @@ const expected_elements: [string, Body][] = [
       {
         name: 'div',
         loc: {line: 1, col: 1},
-        body: [{text: 'hello'}],
+        body: ['hell'],
         attributes: [
           {
             name: 'class',
-            value: {
-              type: 'operator',
-              operator: '+',
-              args: [
-                {type: 'num', value: 1},
-                {type: 'num', value: 2},
-              ],
-            },
+            value: [
+              {
+                type: 'operator',
+                operator: '+',
+                args: [
+                  {type: 'num', value: 1},
+                  {type: 'num', value: 2},
+                ],
+              },
+            ],
           },
         ],
       },
@@ -34,15 +44,14 @@ const expected_elements: [string, Body][] = [
   [
     '<template name="IntComponent" foo="">foo {{ foo }}</template>\n<IntComponent foo="xxx"/>',
     [
-      {text: '\n'},
       {
         name: 'IntComponent',
         loc: {line: 2, col: 1},
         body: [],
-        attributes: [{name: 'foo', value: {text: 'xxx'}}],
+        attributes: [{name: 'foo', value: ['xx']}],
         component: {
           props: [{name: 'foo'}],
-          body: [{text: 'foo {{ foo }}'}],
+          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
           file: 'root.html',
           loc: {line: 1, col: 1},
         },
@@ -52,15 +61,14 @@ const expected_elements: [string, Body][] = [
   [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
-      {text: '\n'},
       {
         name: 'ExtComponent',
         loc: {line: 2, col: 1},
         body: [],
-        attributes: [{name: 'foo', value: {text: 'xxx'}}],
+        attributes: [{name: 'foo', value: ['xx']}],
         component: {
           props: [{name: 'foo'}],
-          body: [{text: 'foo {{ foo }}'}],
+          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
           file: 'ExtComponent.html',
           loc: {line: 1, col: 1},
         },
