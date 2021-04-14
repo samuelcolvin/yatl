@@ -41,7 +41,7 @@ describe('tokenize', () => {
   })
 
   // test('create expected_tokens', () => {
-  //   const new_expected_tokens = expected_tokens.map(e => [e[0], tokenize(e[0]).map(utils.token_as_compact)])
+  //   const new_expected_tokens = expected_tokens.map(([e,]) => [e, tokenize(e).map(utils.token_as_compact)])
   //   console.log('const expected_tokens: [string, string[]][] = %j', new_expected_tokens)
   // })
 })

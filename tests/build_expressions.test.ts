@@ -75,7 +75,7 @@ describe('build_groups', () => {
   })
 
   // test('create-expected_groups', () => {
-  //   const tokens: [string[], Token[]][] = expected_groups.map(g => [g[0], g[0].map(utils.compact_as_token)])
+  //   const tokens: [string[], Token[]][] = expected_groups.map(([g,]) => [g, g.map(utils.compact_as_token)])
   //   const new_expected_groups = tokens.map(([g, t]) => [g, build_groups(t).map(utils.mixed_as_compact)])
   //   console.log('const expected_groups: [string[], any][] = %j', new_expected_groups)
   // })
@@ -161,7 +161,7 @@ describe('build_expression', () => {
   })
 
   // test('create-expected_expressions', () => {
-  //   const tokens: [string[], Token[]][] = expected_expressions.map(g => [g[0], g[0].map(utils.compact_as_token)])
+  //   const tokens: [string[], Token[]][] = expected_expressions.map(([g,]) => [g, g.map(utils.compact_as_token)])
   //   const new_expected_expressions = tokens.map(([g, t]) => [g, utils.clause_as_compact(build_expression(t))])
   //   console.log('const expected_expressions: [string[], any][] = %j', new_expected_expressions)
   // })
@@ -224,7 +224,7 @@ describe('build-e2e', () => {
   })
 
   // test('create-expected_e2e', () => {
-  //   const new_expected_e2e = expected_e2e.map(g => [g[0], utils.clause_as_compact(build(g[0]))])
+  //   const new_expected_e2e = expected_e2e.map(([g,]) => [g, utils.clause_as_compact(build(g))])
   //   console.log('const expected_e2e: [string, any][] = %j', new_expected_e2e)
   // })
 })
