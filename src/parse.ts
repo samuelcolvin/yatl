@@ -23,6 +23,23 @@ interface TextTemplate {
   readonly loc: FileLocation
 }
 
+interface Prop {
+  readonly name: string
+  readonly default?: string
+}
+
+interface ComponentReference {
+  readonly path: string | null
+  used: boolean
+}
+
+interface ComponentDefinition {
+  readonly props: Prop[]
+  readonly body: Body
+  readonly file: string
+  readonly loc: FileLocation
+}
+
 interface Attribute {
   readonly name: string
   readonly value: TextRaw | TextTemplate | Clause
@@ -36,33 +53,16 @@ interface Element {
   readonly attributes: Attribute[]
   readonly body: Body
   doctype?: string
-  component?: Component | ExternalComponent
+  component?: ComponentDefinition | ComponentReference
 }
 
-interface Prop {
-  readonly name: string
-  readonly default?: string
-}
-
-interface ExternalComponent {
-  readonly name: string
-  path: string | null
-  used: boolean
-}
-
-interface Component {
-  readonly name: string
-  readonly props: Prop[]
-  readonly body: Body
-  readonly loc: FileLocation
-}
-
-type FileComponents = {[key: string]: Component | ExternalComponent}
+type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
 class FileParser {
   private readonly parser: SaxesParser
-  private parents: (Element | Component)[] = []
-  current: Element | Component
+  private readonly file_name: string
+  private parents: (Element | ComponentDefinition)[] = []
+  current: Element | ComponentDefinition
   components: FileComponents = {}
   private external_component_tags: Element[] = [] // elements referencing external components
   private tag_col = 0
@@ -71,6 +71,7 @@ class FileParser {
   private props: Prop[] = []
 
   constructor(file_name: string) {
+    this.file_name = file_name
     this.current = {
       name: 'root',
       attributes: [],
@@ -98,7 +99,7 @@ class FileParser {
      * - check tags match the props of their component where applicable
      */
     for (const tag of this.external_component_tags) {
-      const component = tag.component as Component | ExternalComponent
+      const component = tag.component as ComponentDefinition | ComponentReference
       if ('props' in component) {
         this.check_missing_props(tag.name, component, tag.attributes)
       } else {
@@ -137,26 +138,30 @@ class FileParser {
   }
 
   private on_opentag(tag: SaxesTagPlain): void {
-    let new_tag: Element | Component | null = null
+    let new_tag: Element | ComponentDefinition | null = null
     const loc: FileLocation = {line: this.parser.line, col: this.tag_col}
     if (this.is_component) {
       const name: string | undefined = tag.attributes.name || tag.attributes.id
       if (!name) {
         throw Error('"name" or "id" is required for "<template>" elements when creating components')
-      }
-      if (!/^[A-Z][a-zA-Z0-9]+$/.test(name)) {
+      } else if (!/^[A-Z][a-zA-Z0-9]+$/.test(name)) {
         throw Error('component names must be CamelCase: start with a capital, contain only letters and numbers')
       }
+      if (name in this.components) {
+        throw Error(`Component ${name} already defined`)
+      }
+
       if (tag.isSelfClosing) {
-        this.components[name] = {name, path: tag.attributes.path || null, used: false}
+        // a ComponentReference
+        this.components[name] = {path: tag.attributes.path || null, used: false}
       } else {
-        new_tag = {name, props: this.props, loc, body: []}
-        this.components[name] = new_tag
+        // a ComponentDefinition
+        this.components[name] = new_tag = {props: this.props, body: [], file: this.file_name, loc}
       }
       this.props = []
     } else {
-      const name = tag.name
-      let component: Component | ExternalComponent | null = null
+      const {name} = tag
+      let component: ComponentDefinition | ComponentReference | null = null
       let external = false
       if (is_upper_case(name.substr(0, 1))) {
         // assume this is a component
@@ -174,7 +179,7 @@ class FileParser {
           component.used = true
         }
       }
-      new_tag = {name: name, loc, body: [], attributes: this.attributes}
+      new_tag = {name, loc, body: [], attributes: this.attributes}
       if (component) {
         new_tag.component = component
         if (external) {
@@ -221,7 +226,7 @@ class FileParser {
     this.current.body.push({comment})
   }
 
-  private check_missing_props(name: string, component: Component, tag_attrs: Attribute[]): void {
+  private check_missing_props(name: string, component: ComponentDefinition, tag_attrs: Attribute[]): void {
     const attr_names = new Set(tag_attrs.map(a => a.name))
     const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name)).map(p => p.name)
     if (missing_props.length) {
@@ -259,7 +264,7 @@ class TemplateLoader {
     const req_components = Object.entries(components).filter(([, c]) => 'used' in c && c.used)
     const req_files: {[path: string]: Set<string>} = {}
     for (const [name, component] of req_components) {
-      const path = (component as ExternalComponent).path || `${name}.html`
+      const path = (component as ComponentReference).path || `${name}.html`
       if (path in req_files) {
         req_files[path].add(name)
       } else {
@@ -271,7 +276,8 @@ class TemplateLoader {
     )
     for (const new_file_components of imported_components) {
       for (const [name, component] of Object.entries(new_file_components)) {
-        const new_comp: any = Object.assign(components[name], component as Component)
+        // modify the component in place to convert it from a ComponentReference to as ComponentDefinition
+        const new_comp: any = Object.assign(components[name], component)
         delete new_comp.path
         delete new_comp.used
       }
