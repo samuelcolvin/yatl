@@ -28,11 +28,13 @@ interface Attribute {
   readonly value: TextRaw | TextTemplate | Clause
 }
 
+export type Body = (Comment | TextRaw | TextTemplate | Element)[]
+
 interface Element {
   readonly name: string
   readonly loc: FileLocation
   readonly attributes: Attribute[]
-  readonly body: (Comment | TextRaw | TextTemplate | Element)[]
+  readonly body: Body
   doctype?: string
   component?: Component | ExternalComponent
 }
@@ -51,15 +53,17 @@ interface ExternalComponent {
 interface Component {
   readonly name: string
   props: Prop[]
-  body: (Comment | TextRaw | TextTemplate | Element)[]
+  body: Body
   loc: FileLocation
 }
 
-class Parser {
+type FileComponents = {[key: string]: Component | ExternalComponent}
+
+class FileParser {
   private readonly parser: SaxesParser
   private parents: (Element | Component)[] = []
   current: Element | Component
-  components: Record<string, Component | ExternalComponent> = {}
+  components: FileComponents = {}
   private tag_col = 0
   private is_component = false
   private attrs: Attribute[] = []
@@ -205,11 +209,59 @@ class Parser {
   }
 }
 
-export function load_base_template(file_name: string, xml: string): any {
-  const parser = new Parser(file_name)
-  parser.parse(xml)
-  return {
-    body: parser.current.body,
-    components: parser.components,
+export type FileLoader = (path: string) => Promise<string>
+
+class TemplateLoader {
+  base_file_path: string
+  file_loader: FileLoader
+
+  constructor(file_path: string, file_loader: FileLoader) {
+    this.base_file_path = file_path
+    this.file_loader = file_loader
   }
+
+  async load(): Promise<Body> {
+    const parser = await this.parse_file(this.base_file_path)
+    return parser.current.body
+  }
+
+  private async parse_file(file_path: string): Promise<FileParser> {
+    const xml = await this.file_loader(file_path)
+    const parser = new FileParser(file_path)
+    parser.parse(xml)
+    await this.load_external_components(parser.components)
+    return parser
+  }
+
+  private async load_external_components(components: FileComponents): Promise<void> {
+    const req_components = Object.entries(components).filter(([, c]) => ('used' in c) && c.used)
+    const req_files: {[path: string]: Set<string>} = {}
+    for (const [name, component] of req_components) {
+      const path = (component as ExternalComponent).path || `${name}.html`
+      if (path in req_files) {
+        req_files[path].add(name)
+      } else {
+        req_files[path] = new Set([name])
+      }
+    }
+    const imported_components: FileComponents[] = await Promise.all(Object.entries(req_files).map(pc => this.load_file_components(...pc)))
+    for (const new_file_components of imported_components) {
+      for (const [name, component] of Object.entries(new_file_components)) {
+        const new_comp: any = Object.assign(components[name], component as Component)
+        delete new_comp.path
+        delete new_comp.used
+      }
+    }
+  }
+
+  private async load_file_components(file_path: string, components: Set<string>): Promise<FileComponents> {
+    const parser = await this.parse_file(file_path)
+    return Object.fromEntries(Object.entries(parser.components).filter(([k,]) => components.has(k)))
+  }
+}
+
+
+export async function load_base_template(file_path: string, file_loader: FileLoader): Promise<Body> {
+  const loader = new TemplateLoader(file_path, file_loader)
+  return loader.load()
 }
