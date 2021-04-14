@@ -45,6 +45,10 @@ const evaluate_expect: [string, any][] = [
   ['a.c.d == a.c.d', true],
   ['a.c.e == a.c.e', true],
   ['a.c.d == a.c.e', false],
+  ['a.c.e == an_array[2]', false],
+  ['a.c.e == equal_object', true],
+  ['a.c.e == long_object', false],
+  ['a.c.e == nequal_object', false],
   ['a == a', true],
   ['an_array == an_array', true],
   ['an_array == a', false],
@@ -57,6 +61,8 @@ const evaluate_expect: [string, any][] = [
   ['11 in (1, 2, 3)', false],
   ['"b" in a', true],
   ['"bb" in a', false],
+  ['is_null == is_null', true],
+  ['is_null == 1', false],
   ['"first-element" in an_array', true],
   ['"other" in an_array', false],
 ]
@@ -73,8 +79,13 @@ const text_context: Context = {
   one: 1,
   an_int: 123,
   a_float: 12.5,
+  equal_object: {f: 'f-value'},
+  nequal_object: {f: 'not-f-value'},
+  long_object: {a: 123, b: 456},
   is_false: false,
   is_true: true,
+  is_null: null,
+  is_undefined: undefined,
 }
 const test_functions: Functions = {
   no_args: () => 42,
