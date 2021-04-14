@@ -13,8 +13,34 @@
     "build": "tsc",
     "test": "jest --config jestconfig.json --verbose",
     "experiment": "ts-node --project tsconfig.json ./src/index.ts",
-    "format": "prettier --write 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
-    "lint": "eslint --max-warnings=0 src && prettier --check 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'"
+    "format": "prettier --write '*.json' 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
+    "lint": "eslint --max-warnings=0 src && prettier --check '*.json' 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'"
+  },
+  "eslintConfig": {
+    "root": true,
+    "ignorePatterns": [
+      "/lib/**/*"
+    ],
+    "parserOptions": {
+      "ecmaVersion": 11,
+      "sourceType": "module",
+      "ecmaFeatures": {
+        "jsx": true
+      }
+    },
+    "globals": {
+      "enz": true,
+      "xhr_calls": true
+    },
+    "extends": [
+      "typescript",
+      "prettier"
+    ],
+    "rules": {
+      "@typescript-eslint/explicit-module-boundary-types": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "no-constant-condition": "off"
+    }
   },
   "dependencies": {
     "esprima": "^4.0.1",
