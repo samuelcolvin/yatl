@@ -2,18 +2,12 @@ import {load_base_template, Body, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, Body][] = [
-  [
-    '<div>hello</div>',
-    [{name: 'div', loc: {line: 1, col: 1}, attributes: [], body: [{text: 'hello'}]}],
-  ],
+  ['<div>hello</div>', [{name: 'div', loc: {line: 1, col: 1}, attributes: [], body: [{text: 'hello'}]}]],
   [
     '   <div>hello</div>',
     [{text: '   '}, {name: 'div', loc: {line: 1, col: 4}, attributes: [], body: [{text: 'hello'}]}],
   ],
-  [
-    '<template name="Testing">foobar</template>',
-    [],
-  ],
+  ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
     [
@@ -27,7 +21,9 @@ const expected_elements: [string, Body][] = [
             value: {
               type: 'operator',
               operator: '+',
-              args: [{type: 'num', value: 1}, {type: 'num', value: 2},
+              args: [
+                {type: 'num', value: 1},
+                {type: 'num', value: 2},
               ],
             },
           },
@@ -51,7 +47,7 @@ const expected_elements: [string, Body][] = [
           body: [{text: 'foo {{ foo }}'}],
         },
       },
-    ]
+    ],
   ],
   [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
@@ -69,7 +65,7 @@ const expected_elements: [string, Body][] = [
           body: [{text: 'foo {{ foo }}'}],
         },
       },
-    ]
+    ],
   ],
 ]
 
@@ -77,9 +73,9 @@ function get_loader(xml: string): FileLoader {
   return async (path: string) => {
     if (path == 'root.html') {
       return xml
-    }else if (path == 'ExtComponent.html') {
+    } else if (path == 'ExtComponent.html') {
       return '<template name="ExtComponent" foo="">foo {{ foo }}</template>'
-    } else{
+    } else {
       throw Error(`Unknown template "${path}"`)
     }
   }

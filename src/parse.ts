@@ -256,7 +256,7 @@ class TemplateLoader {
   }
 
   private async load_external_components(components: FileComponents): Promise<void> {
-    const req_components = Object.entries(components).filter(([, c]) => ('used' in c) && c.used)
+    const req_components = Object.entries(components).filter(([, c]) => 'used' in c && c.used)
     const req_files: {[path: string]: Set<string>} = {}
     for (const [name, component] of req_components) {
       const path = (component as ExternalComponent).path || `${name}.html`
@@ -266,7 +266,9 @@ class TemplateLoader {
         req_files[path] = new Set([name])
       }
     }
-    const imported_components: FileComponents[] = await Promise.all(Object.entries(req_files).map(pc => this.load_file_components(...pc)))
+    const imported_components: FileComponents[] = await Promise.all(
+      Object.entries(req_files).map(pc => this.load_file_components(...pc)),
+    )
     for (const new_file_components of imported_components) {
       for (const [name, component] of Object.entries(new_file_components)) {
         const new_comp: any = Object.assign(components[name], component as Component)
@@ -278,11 +280,10 @@ class TemplateLoader {
 
   private async load_file_components(file_path: string, components: Set<string>): Promise<FileComponents> {
     const parser = await this.parse_file(file_path)
-    // TODO check all components are defined and raise an error if not
-    return Object.fromEntries(Object.entries(parser.components).filter(([k,]) => components.has(k)))
+    // TODO check all components are defined here and raise an error if not
+    return Object.fromEntries(Object.entries(parser.components).filter(([k]) => components.has(k)))
   }
 }
-
 
 export async function load_base_template(file_path: string, file_loader: FileLoader): Promise<Body> {
   const loader = new TemplateLoader(file_path, file_loader)
