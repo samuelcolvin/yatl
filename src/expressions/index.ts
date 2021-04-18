@@ -7,8 +7,8 @@ export function build_clause(expression: string): Clause {
   return build_expression(tokens)
 }
 
-export function evaluate(expression: string, context: Context, functions: Functions): Result {
+export async function evaluate(expression: string, context: Context, functions: Functions): Promise<Result> {
   const clause = build_clause(expression)
   const e = new Evaluator(context, functions)
-  return e.evaluate(clause)
+  return await e.evaluate(clause)
 }

@@ -5,13 +5,14 @@ export type Result = string | number | boolean | null | undefined | Date | Resul
 
 type LookupType<R> = {[key: string]: R | (R | LookupType<R>)[] | LookupType<R>}
 export type Context = LookupType<Result>
-type TemplateFunction = (...args: any[]) => Result | TemplateFunction
+type AsyncFunction = (...args: any[]) => Promise<Result>
+type TemplateFunction = (...args: any[]) => Promise<Result | AsyncFunction>
 export type Functions = LookupType<TemplateFunction>
 
 export default class Evaluator {
   private readonly context: Context
   private readonly functions: Functions
-  private readonly operator_functions: Record<OperatorType, (value: Result, args: Clause[]) => Result>
+  private readonly operator_functions: Record<OperatorType, (value: Result, args: Clause[]) => Promise<Result>>
 
   constructor(context: Context, functions: Functions) {
     this.context = context
@@ -19,7 +20,7 @@ export default class Evaluator {
     this.evaluate = this.evaluate.bind(this)
 
     this.operator_functions = {
-      '|': (value, args) => args.reduce((a, b) => this.filter_run(a, b as Var | Func), value),
+      '|': (value, args) => async_reduce(args, (a, b) => this.filter_run(a, b as Var | Func), value),
       '*': (value, args) => this.op_mult_div(value, args, '*'),
       '/': (value, args) => this.op_mult_div(value, args, '/'),
       '+': this.op_add.bind(this),
@@ -32,7 +33,7 @@ export default class Evaluator {
     }
   }
 
-  evaluate(c: Clause): Result {
+  async evaluate(c: Clause): Promise<Result> {
     switch (c.type) {
       case 'var':
         return this.var(c)
@@ -41,13 +42,13 @@ export default class Evaluator {
       case 'bool':
         return c.value
       case 'list':
-        return c.elements.map(e => this.evaluate(e))
+        return await async_map(c.elements, this.evaluate)
       case 'func':
-        return this.func_run(c)
+        return await this.func_run(c)
       case 'mod':
-        return this.modifiers(c)
+        return await this.modifiers(c)
       case 'operator':
-        return this.operation(c)
+        return await this.operation(c)
       default:
         shouldnt_happen(c)
     }
@@ -57,9 +58,10 @@ export default class Evaluator {
     return this.lookup_value(v, this.context, 'context')
   }
 
-  private func_run(f: Func): Result {
+  private async func_run(f: Func): Promise<Result> {
     const func = this.func_get(f)
-    const r = func(...f.args.map(a => this.evaluate(a)))
+    const args = await async_map(f.args, this.evaluate)
+    const r = await func(...args)
     if (typeof r == 'function') {
       throw Error('filter functions may not be called directly')
     }
@@ -78,31 +80,32 @@ export default class Evaluator {
     }
   }
 
-  private operation(op: Operation): Result {
+  private async operation(op: Operation): Promise<Result> {
     const func = this.operator_functions[op.operator]
-    return func(this.evaluate(op.args[0]), op.args.slice(1))
+    return await func(await this.evaluate(op.args[0]), op.args.slice(1))
   }
 
-  private filter_run(a: Result, filter: Var | Func): Result {
+  private async filter_run(a: Result, filter: Var | Func): Promise<Result> {
     let func: TemplateFunction
     if (filter.type == 'var') {
       func = this.func_get({type: 'func', var: filter, args: []})
     } else {
       const outer_func = this.func_get(filter)
-      const func_ = outer_func(...filter.args.map(a => this.evaluate(a)))
+      const args = await async_map(filter.args, this.evaluate)
+      const func_ = await outer_func(...args)
       if (typeof func_ != 'function') {
         throw Error('filter functions must return another function')
       }
       func = func_
     }
-    const r = func(a)
+    const r = await func(a)
     if (typeof r == 'function') {
       throw Error('filters may not return a function')
     }
     return r
   }
 
-  private op_mult_div(value: Result, args: Clause[], op: '*' | '/'): number {
+  private async op_mult_div(value: Result, args: Clause[], op: '*' | '/'): Promise<number> {
     if (typeof value != 'number') {
       throw TypeError(`arithmetic operation ${op} only possible on numbers, got ${typeof value}`)
     }
@@ -110,7 +113,7 @@ export default class Evaluator {
       if (!value) {
         return value
       }
-      const arg_num = this.evaluate(arg)
+      const arg_num = await this.evaluate(arg)
       if (typeof arg_num == 'number') {
         if (op == '*') {
           value *= arg_num
@@ -124,61 +127,61 @@ export default class Evaluator {
     return value
   }
 
-  private op_add(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+  private async op_add(value: Result, args: Clause[]): Promise<number | Result[] | {[key: string]: Result}> {
     const value_type = smart_typeof(value)
     switch (value_type) {
       case 'number':
-        return args.reduce(this.add_numbers.bind(this), value as number)
+        return await async_reduce(args, this.add_numbers.bind(this), value as number)
       case 'array':
-        return args.reduce(this.add_arrays.bind(this), value as any[])
+        return await async_reduce(args, this.add_arrays.bind(this), value as any[])
       case 'object':
-        return args.reduce(this.add_objects.bind(this), value as {[key: string]: Result})
+        return await async_reduce(args, this.add_objects.bind(this), value as {[key: string]: Result})
       default:
         throw TypeError(`unable to add ${value_type}s`)
     }
   }
 
-  private add_numbers(a: number, b: Clause): number {
-    const v = this.evaluate(b)
+  private async add_numbers(a: number, b: Clause): Promise<number> {
+    const v = await this.evaluate(b)
     if (typeof v != 'number') {
       throw TypeError(`only number can be added to number, not ${typeof b}`)
     }
     return a + v
   }
 
-  private add_arrays(a: Result[], b: Clause): Result[] {
-    const v = this.evaluate(b)
+  private async add_arrays(a: Result[], b: Clause): Promise<Result[]> {
+    const v = await this.evaluate(b)
     if (!Array.isArray(v)) {
       throw TypeError(`only arrays can be added to arrays, not ${typeof v}`)
     }
     return [...a, ...v]
   }
 
-  private add_objects(a: {[key: string]: Result}, b: Clause): {[key: string]: Result} {
-    const v = this.evaluate(b)
+  private async add_objects(a: {[key: string]: Result}, b: Clause): Promise<{[key: string]: Result}> {
+    const v = await this.evaluate(b)
     if (typeof v != 'object' || !v) {
       throw TypeError(`only objects can be added to objects, not ${typeof v}`)
     }
     return {...a, ...v} as any
   }
 
-  private op_subtract(value: Result, args: Clause[]): number | Result[] | {[key: string]: Result} {
+  private async op_subtract(value: Result, args: Clause[]): Promise<number | Result[] | {[key: string]: Result}> {
     if (typeof value != 'number') {
       throw TypeError(`only numbers can be subtracted, not ${typeof value}`)
     }
-    return args.reduce(this.subtract_numbers.bind(this), value)
+    return await async_reduce(args, this.subtract_numbers.bind(this), value)
   }
 
-  private subtract_numbers(a: number, b: Clause): number {
-    const v = this.evaluate(b)
+  private async subtract_numbers(a: number, b: Clause): Promise<number> {
+    const v = await this.evaluate(b)
     if (typeof v != 'number') {
       throw TypeError(`only numbers can be subtracted, not ${typeof b}`)
     }
     return a - v
   }
 
-  private op_in(value: Result, args: Clause[]): boolean {
-    const container = this.evaluate(args[0])
+  private async op_in(value: Result, args: Clause[]): Promise<boolean> {
+    const container = await this.evaluate(args[0])
     const container_type = smart_typeof(container)
     if (container_type == 'object') {
       if (typeof value != 'string') {
@@ -199,19 +202,21 @@ export default class Evaluator {
     }
   }
 
-  private op_equals = (value: Result, args: Clause[]): boolean =>
-    args.every(a => smart_equals(value, this.evaluate(a)))
-  private op_not_equals = (value: Result, args: Clause[]): boolean =>
-    args.every(a => !smart_equals(value, this.evaluate(a)))
-  private op_and = (value: Result, args: Clause[]): boolean => !!(value && args.every(this.evaluate))
-  private op_or = (value: Result, args: Clause[]): boolean => !!(value || !args.every(c => !this.evaluate(c)))
+  private op_equals = (value: Result, args: Clause[]): Promise<boolean> =>
+    async_every(args, async a => smart_equals(value, await this.evaluate(a)))
+  private op_not_equals = (value: Result, args: Clause[]): Promise<boolean> =>
+    async_every(args, async a => !smart_equals(value, await this.evaluate(a)))
+  private op_and = async (value: Result, args: Clause[]): Promise<boolean> =>
+    !!(value && (await async_every(args, this.evaluate)))
+  private op_or = async (value: Result, args: Clause[]): Promise<boolean> =>
+    !!(value || !(await async_every(args, async c => !(await this.evaluate(c)))))
 
-  private modifiers(mod: Modified): Result {
+  private async modifiers(mod: Modified): Promise<Result> {
     if (mod.mod == '!') {
-      return !this.evaluate(mod.element)
+      return !(await this.evaluate(mod.element))
     } else {
       // minus
-      const v = this.evaluate(mod.element)
+      const v = await this.evaluate(mod.element)
       if (typeof v == 'number') {
         return -v
       } else {
@@ -274,4 +279,31 @@ export default class Evaluator {
     }
     return value
   }
+}
+
+// TODO, use generics
+async function async_map<A, R extends Result>(items: A[], func: (i: A) => Promise<R>): Promise<R[]> {
+  const result: R[] = []
+  for (const item of items) {
+    result.push(await func(item))
+  }
+  return result
+}
+
+// TODO, use generics
+async function async_reduce<A extends Result, B>(items: B[], func: (a: A, b: B) => Promise<A>, value: A): Promise<A> {
+  for (const item of items) {
+    value = await func(value, item)
+  }
+  return value
+}
+
+// TODO, use generics
+async function async_every<A>(items: A[], func: (i: A) => Promise<any>): Promise<boolean> {
+  for (const item of items) {
+    if (!(await func(item))) {
+      return false
+    }
+  }
+  return true
 }

@@ -95,24 +95,24 @@ const text_context: Context = {
   is_null: null,
 }
 const test_functions: Functions = {
-  no_args: () => 42,
-  one_argument: (x: number) => x * 2,
-  filter_function: (a: string) => {
-    return (b: string) => a + b
+  no_args: async () => 42,
+  one_argument: async (x: number) => x * 2,
+  filter_function: async (a: string) => {
+    return async (b: string) => a + b
   },
   namespace: {
-    add: (a: number, b: number) => a + b,
+    add: async (a: number, b: number) => a + b,
   },
 }
 
 describe('evaluate', () => {
-  it('maths', () => {
-    expect(evaluate('1 + 2', {}, {})).toEqual(3)
+  it('maths', async () => {
+    expect(await evaluate('1 + 2', {}, {})).toEqual(3)
   })
-  it('lookup', () => {
-    expect(evaluate('x', {x: 'foobar'}, {})).toEqual('foobar')
+  it('lookup', async () => {
+    expect(await evaluate('x', {x: 'foobar'}, {})).toEqual('foobar')
   })
-  each(evaluate_expect).test('expected_expressions %s -> %j', (expression, expected_result) => {
-    expect(evaluate(expression, text_context, test_functions)).toStrictEqual(expected_result)
+  each(evaluate_expect).test('expected_expressions %s -> %j', async (expression, expected_result) => {
+    expect(await evaluate(expression, text_context, test_functions)).toStrictEqual(expected_result)
   })
 })
