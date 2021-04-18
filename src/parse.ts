@@ -33,6 +33,7 @@ interface ComponentDefinition {
 interface Attribute {
   readonly name: string
   readonly value: (string | Clause)[]
+  readonly set?: true
 }
 
 export type Body = (Comment | string | Clause | Element)[]
@@ -121,6 +122,8 @@ class FileParser {
     } else {
       if (name.endsWith(':')) {
         this.attributes.push({name: name.slice(0, -1), value: [build_clause(value)]})
+      } else if (name.startsWith('set:')) {
+        this.attributes.push({name: name.substr(4), value: [build_clause(value)], set: true})
       } else {
         this.attributes.push({name, value: this.parse_string(value)})
       }

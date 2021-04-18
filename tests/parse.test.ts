@@ -75,6 +75,20 @@ const expected_elements: [string, Body][] = [
       },
     ],
   ],
+  [
+    '<div set:x="1" set:y="2"/>',
+    [
+      {
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: [],
+        attributes: [
+          {name: 'x', value: [{type: 'num', value: 1}], set: true},
+          {name: 'y', value: [{type: 'num', value: 2}], set: true},
+        ],
+      },
+    ],
+  ],
 ]
 
 function get_loader(xml: string): FileLoader {
