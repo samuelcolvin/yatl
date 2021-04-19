@@ -193,7 +193,7 @@ const expected_e2e: [string, any][] = [
   ['-modified', {'mod:-': 'var:modified'}],
   ['--modified', {'mod:-': {'mod:-': 'var:modified'}}],
   ['!modified()', {'mod:!': {func: 'var:modified', args: []}}],
-  // ['!foo|bar', {'mod:!': {'op:|': ['var:foo', 'var:bar']}}],
+  ['!foo|bar', {'mod:!': {'op:|': ['var:foo', 'var:bar']}}],
   ['a + !modified', {'op:+': ['var:a', {'mod:!': 'var:modified'}]}],
   ['a + -modified', {'op:+': ['var:a', {'mod:-': 'var:modified'}]}],
   ['-modified(a, b, !c)', {'mod:-': {func: 'var:modified', args: ['var:a', 'var:b', {'mod:!': 'var:c'}]}}],

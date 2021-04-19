@@ -37,7 +37,6 @@ const evaluate_expect: [string, any][] = [
   ['2|one_argument', 4],
   ['namespace.add(1, 2)', 3],
   ['"bar"|filter_function("foo")', 'foobar'],
-  // TODO:
   ['!is_true', false],
   ['!!is_true', true],
   ['!is_null', true],
@@ -73,6 +72,7 @@ const evaluate_expect: [string, any][] = [
   ['is_null == 1', false],
   ['"first-element" in an_array', true],
   ['"other" in an_array', false],
+  ['-4 + 1', -3],
 ]
 const text_context: Context = {
   a: {

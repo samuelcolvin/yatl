@@ -192,50 +192,6 @@ export interface TempModified {
   element: MixedElement
 }
 
-const modifiable = new Set(['group', 'func', 'mod', 'var', 'num'])
-
-export function build_modifiers(groups: MixedElement[]): MixedElement[] {
-  while (true) {
-    const new_groups: MixedElement[] = []
-    let found_modifiers = false
-    for (let index = 0; index < groups.length; index++) {
-      const g = groups[index]
-      if (g.type == '!' || g.type == '-') {
-        // TODO anything that can not be modified?
-        if (index == groups.length - 1) {
-          throw Error(`expression ended unexpectedly with modifier "${g.type}"`)
-        }
-        if (index == 0 || operator_mod_set.has(groups[index - 1].type)) {
-          // at the beginning or after an operator
-          const next = groups[index + 1]
-          if (modifiable.has(next.type)) {
-            new_groups.push({type: 'mod', mod: g.type, element: apply_build_modifiers(next)})
-            index++
-            found_modifiers = true
-            continue
-          }
-        } else if (g.type == '!') {
-          throw new Error('The not modifier "!" is not permitted between expressions')
-        }
-      }
-      new_groups.push(apply_build_modifiers(g) as Token | Var | TempFunc)
-    }
-    groups = new_groups
-    if (!found_modifiers) {
-      break
-    }
-  }
-  return groups
-}
-
-function apply_build_modifiers(g: MixedElement): MixedElement {
-  if (g.type == 'group' || g.type == 'func') {
-    return {...g, args: g.args.map(build_modifiers)}
-  } else {
-    return g as MixedElement
-  }
-}
-
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
 const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
 export type OperatorType = typeof operator_precedence[number]
@@ -252,6 +208,9 @@ export function build_operations(groups: MixedElement[]): MixedElement {
   let tmp_groups: MixedElement[] = groups
 
   for (const operator_type of operator_precedence) {
+    if (operator_type == '*') {
+      tmp_groups = build_modifiers(tmp_groups)
+    }
     const new_groups: MixedElement[] = []
     for (let index = 0; index < tmp_groups.length; index++) {
       const g = tmp_groups[index]
@@ -295,6 +254,49 @@ function apply_build_operations(g: MixedElement): MixedElement {
     return {...g, element: build_operations([g.element])}
   } else {
     return g
+  }
+}
+
+const modifiable = new Set(['group', 'func', 'mod', 'var', 'num', 'operator'])
+
+export function build_modifiers(groups: MixedElement[]): MixedElement[] {
+  /**
+   * Called after filters in build_operations to apply modifiers before going through other operators, see precedence
+   */
+  while (true) {
+    const new_groups: MixedElement[] = []
+    let found_modifiers = false
+    for (let index = 0; index < groups.length; index++) {
+      const g = groups[index]
+      if (g.type == '!' || g.type == '-') {
+        // TODO anything that can not be modified?
+        if (index == groups.length - 1) {
+          throw Error(`expression ended unexpectedly with modifier "${g.type}"`)
+        }
+        if (index == 0 || operator_mod_set.has(groups[index - 1].type)) {
+          // at the beginning or after an operator
+          const next = groups[index + 1]
+          if (modifiable.has(next.type)) {
+            new_groups.push({type: 'mod', mod: g.type, element: apply_build_operations(next)})
+            index++
+            found_modifiers = true
+            continue
+          }
+        } else if (g.type == '!') {
+          throw new Error('The not modifier "!" is not permitted between expressions')
+        }
+      }
+      if (g.type == 'group' || g.type == 'func') {
+        new_groups.push({...g, args: g.args.map(build_modifiers)})
+      } else {
+        new_groups.push(g)
+      }
+    }
+    if (found_modifiers) {
+      groups = new_groups
+    } else {
+      return new_groups
+    }
   }
 }
 
@@ -367,9 +369,6 @@ export default function build_expression(tokens: Token[]): Clause {
   const groups = build_groups(tokens)
   const chains = build_chains(groups)
   const functions = build_functions(chains)
-  // console.log('functions:', JSON.stringify(functions, null, 2))
-  const modified = build_modifiers(functions)
-  // console.log('modified:', JSON.stringify(modified, null, 2))
-  const element = build_operations(modified)
+  const element = build_operations(functions)
   return mixed_as_clause(element)
 }
