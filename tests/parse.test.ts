@@ -1,4 +1,4 @@
-import {load_base_template, Body, FileLoader} from '../src/parse'
+import {load_template, Body, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, Body][] = [
@@ -89,6 +89,11 @@ const expected_elements: [string, Body][] = [
       },
     ],
   ],
+  ['<div>hello</div><!-- a comment-->', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
+  [
+    '<div>hello</div><!-- keep: a comment-->',
+    [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}, {comment: ' a comment'}],
+  ],
 ]
 
 function get_loader(xml: string): FileLoader {
@@ -103,18 +108,18 @@ function get_loader(xml: string): FileLoader {
   }
 }
 
-describe('load_base_template', () => {
+describe('load_template', () => {
   each(expected_elements).test('expected_elements %j', async (xml, expected_elements) => {
     const loader = get_loader(xml)
-    // console.log(JSON.stringify(await load_base_template('root.html', loader), null, 2))
-    expect(await load_base_template('root.html', loader)).toStrictEqual(expected_elements)
+    // console.log(JSON.stringify(await load_template('root.html', loader), null, 2))
+    expect(await load_template('root.html', loader)).toStrictEqual(expected_elements)
   })
 
   // test('create-expected_elements', async () => {
   //   const new_expected_elements = []
   //   for (const [xml,] of expected_elements) {
   //     const loader = get_loader(xml)
-  //     const ee = await load_base_template('root.html', loader)
+  //     const ee = await load_template('root.html', loader)
   //     new_expected_elements.push([xml, ee])
   //   }
   //   console.log('const expected_elements: [string, Body][] = %j', new_expected_elements)

@@ -49,6 +49,8 @@ interface Element {
 
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
+const keep_comment_regex = /^(\s*)keep:\s*/i
+
 class FileParser {
   private readonly parser: SaxesParser
   private readonly file_name: string
@@ -215,8 +217,9 @@ class FileParser {
   }
 
   private on_comment(comment: string): void {
-    // TODO starts with "keep:"
-    this.current.body.push({comment})
+    if (keep_comment_regex.test(comment)) {
+      this.current.body.push({comment: comment.replace(keep_comment_regex, '$1')})
+    }
   }
 
   private parse_string(text: string): (string | Clause)[] {
@@ -319,7 +322,7 @@ class TemplateLoader {
   }
 }
 
-export async function load_base_template(file_path: string, file_loader: FileLoader): Promise<Body> {
+export async function load_template(file_path: string, file_loader: FileLoader): Promise<Body> {
   const loader = new TemplateLoader(file_path, file_loader)
   return loader.load()
 }
