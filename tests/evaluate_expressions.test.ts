@@ -38,9 +38,9 @@ const evaluate_expect: [string, any][] = [
   ['namespace.add(1, 2)', 3],
   ['"bar"|filter_function("foo")', 'foobar'],
   // TODO:
-  // ['!is_true', false],
-  // ['!!is_true', true],
-  // ['!is_null', true],
+  ['!is_true', false],
+  ['!!is_true', true],
+  ['!is_null', true],
   ['1 == 1', true],
   ['1 != 1', false],
   ['1 == 2', false],
