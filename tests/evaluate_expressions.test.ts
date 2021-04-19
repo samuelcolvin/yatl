@@ -62,6 +62,7 @@ const evaluate_expect: [string, any][] = [
   ['(1, 2) + (3, 4)', [1, 2, 3, 4]],
   ['a.c.e + an_array[2]', {f: 'f-value', snap: 'snap-value'}],
   ['1 in (1, 2, 3)', true],
+  ['1 not in (1, 2, 3)', false],
   ['11 in (1, 2, 3)', false],
   ['"b" in a', true],
   ['"bb" in a', false],

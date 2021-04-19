@@ -9,7 +9,7 @@ import {Token, TokenType} from './tokenize'
  *  '!', '-' - modifiers (only in specific conditions)
  *  '*', '/', '+', '-' - maths
  *  '==', '!=' - equals, not equals
- *  in - containment or loop
+ *  "in", "!in" - containment or maybe loop
  *  '&&', '||' - and and or
  *  ',' - commas
  */
@@ -193,7 +193,7 @@ export interface TempModified {
 }
 
 // https://docs.python.org/3/reference/expressions.html#operator-precedence
-const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
+const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '!in', '&&', '||'] as const
 export type OperatorType = typeof operator_precedence[number]
 const operator_set: Set<OperatorType> = new Set(operator_precedence)
 const operator_mod_set: Set<string> = new Set((operator_precedence as any).concat('!'))
@@ -229,8 +229,8 @@ export function build_operations(groups: MixedElement[]): MixedElement {
       }
 
       if (args.length) {
-        if (operator_type == 'in' && args.length > 1) {
-          throw Error('chaining the "in" operator is not permitted')
+        if ((operator_type == 'in' || operator_type == '!in') && args.length > 1) {
+          throw Error(`chaining the "${operator_type}" operator is not permitted`)
         }
         new_groups.push({type: 'operator', operator: operator_type, args: [g, ...args].map(apply_build_operations)})
       } else {

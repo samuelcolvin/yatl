@@ -17,6 +17,7 @@ const token_types = [
   '&&',
   '.?',
   'in',
+  '!in',
   'true',
   'false',
   'num',
@@ -40,8 +41,8 @@ const keywords: Record<string, TokenType> = {
 }
 
 export interface Token {
-  type: TokenType
-  value?: string | number
+  readonly type: TokenType
+  readonly value?: string | number
 }
 
 const numbers = new Set('1234567890')
@@ -60,7 +61,11 @@ class Tokenize {
     while (this.index < this.exp.length) {
       const t = this.get_token()
       if (t) {
-        tokens.push(t)
+        if (t.type == 'in' && tokens.length > 0 && tokens[tokens.length - 1].type == '!') {
+          tokens[tokens.length - 1] = {type: '!in'}
+        } else {
+          tokens.push(t)
+        }
       }
       this.index++
     }
