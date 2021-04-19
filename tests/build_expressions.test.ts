@@ -154,7 +154,7 @@ describe('build_expression', () => {
     })
   })
 
-  each(expected_expressions).test('expected_expressions', (tokens_compact, expected_compact) => {
+  each(expected_expressions).test('expected_expressions %j -> %j', (tokens_compact, expected_compact) => {
     const tokens: Token[] = tokens_compact.map(utils.compact_as_token)
     const expected = utils.compact_as_clause(expected_compact)
     expect(build_expression(tokens)).toStrictEqual(expected)
@@ -186,6 +186,17 @@ const expected_e2e: [string, any][] = [
   ['thing|spam|another()', {'op:|': ['var:thing', 'var:spam', {func: 'var:another', args: []}]}],
   ['whatever[1]', {'var:whatever': '.num:1'}],
   ['"bar"|filter_function("foo")', {'op:|': ['str:bar', {func: 'var:filter_function', args: ['str:foo']}]}],
+
+  ['!modified', {'mod:!': 'var:modified'}],
+  ['!!modified', {'mod:!': {'mod:!': 'var:modified'}}],
+  ['!!!modified', {'mod:!': {'mod:!': {'mod:!': 'var:modified'}}}],
+  ['-modified', {'mod:-': 'var:modified'}],
+  ['--modified', {'mod:-': {'mod:-': 'var:modified'}}],
+  ['!modified()', {'mod:!': {func: 'var:modified', args: []}}],
+  // ['!foo|bar', {'mod:!': {'op:|': ['var:foo', 'var:bar']}}],
+  ['a + !modified', {'op:+': ['var:a', {'mod:!': 'var:modified'}]}],
+  ['a + -modified', {'op:+': ['var:a', {'mod:-': 'var:modified'}]}],
+  ['-modified(a, b, !c)', {'mod:-': {func: 'var:modified', args: ['var:a', 'var:b', {'mod:!': 'var:c'}]}}],
 ]
 
 describe('build-e2e', () => {
@@ -216,9 +227,10 @@ describe('build-e2e', () => {
     })
   })
 
-  each(expected_e2e).test('expected_e2e %s', (expression, expected_compact) => {
+  each(expected_e2e).test('expected_e2e %s -> %j', (expression, expected_compact) => {
     const clause = build_clause(expression)
-    // console.log('clause: %o, compact: %j', clause, utils.clause_as_compact(clause))
+    // console.log('full clause: %o', clause)
+    // console.log('compact clause: %j', utils.clause_as_compact(clause))
     const expected = utils.compact_as_clause(expected_compact)
     expect(clause).toStrictEqual(expected)
   })

@@ -6,10 +6,10 @@ import {Token, TokenType} from './tokenize'
  *  '.', '.?' - chains
  *  token() - function arguments attached to vars
  *  | - filters
+ *  '!', '-' - modifiers (only in specific conditions)
  *  '*', '/', '+', '-' - maths
  *  '==', '!=' - equals, not equals
  *  in - containment or loop
- *  '!' not
  *  '&&', '||' - and and or
  *  ',' - commas
  */
@@ -186,16 +186,61 @@ export function build_functions(groups: MixedElement[]): (Token | TempGroup | Va
   return new_groups
 }
 
-// https://docs.python.org/3/reference/expressions.html#operator-precedence
-const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
-export type OperatorType = typeof operator_precedence[number]
-const operator_set: Set<OperatorType> = new Set(operator_precedence)
-
 export interface TempModified {
   type: 'mod'
   mod: '!' | '-'
   element: MixedElement
 }
+
+const modifiable = new Set(['group', 'func', 'mod', 'var', 'num'])
+
+export function build_modifiers(groups: MixedElement[]): MixedElement[] {
+  while (true) {
+    const new_groups: MixedElement[] = []
+    let found_modifiers = false
+    for (let index = 0; index < groups.length; index++) {
+      const g = groups[index]
+      if (g.type == '!' || g.type == '-') {
+        // TODO anything that can not be modified?
+        if (index == groups.length - 1) {
+          throw Error(`expression ended unexpectedly with modifier "${g.type}"`)
+        }
+        if (index == 0 || operator_mod_set.has(groups[index - 1].type)) {
+          // at the beginning or after an operator
+          const next = groups[index + 1]
+          if (modifiable.has(next.type)) {
+            new_groups.push({type: 'mod', mod: g.type, element: apply_build_modifiers(next)})
+            index++
+            found_modifiers = true
+            continue
+          }
+        } else if (g.type == '!') {
+          throw new Error('The not modifier "!" is not permitted between expressions')
+        }
+      }
+      new_groups.push(apply_build_modifiers(g) as Token | Var | TempFunc)
+    }
+    groups = new_groups
+    if (!found_modifiers) {
+      break
+    }
+  }
+  return groups
+}
+
+function apply_build_modifiers(g: MixedElement): MixedElement {
+  if (g.type == 'group' || g.type == 'func') {
+    return {...g, args: g.args.map(build_modifiers)}
+  } else {
+    return g as MixedElement
+  }
+}
+
+// https://docs.python.org/3/reference/expressions.html#operator-precedence
+const operator_precedence = ['|', '*', '/', '+', '-', '==', '!=', 'in', '&&', '||'] as const
+export type OperatorType = typeof operator_precedence[number]
+const operator_set: Set<OperatorType> = new Set(operator_precedence)
+const operator_mod_set: Set<string> = new Set((operator_precedence as any).concat('!'))
 
 export interface TempOperation {
   type: 'operator'
@@ -203,8 +248,9 @@ export interface TempOperation {
   args: MixedElement[]
 }
 
-export function build_operations(groups: MixedElement[]): MixedElement[] {
+export function build_operations(groups: MixedElement[]): MixedElement {
   let tmp_groups: MixedElement[] = groups
+
   for (const operator_type of operator_precedence) {
     const new_groups: MixedElement[] = []
     for (let index = 0; index < tmp_groups.length; index++) {
@@ -215,14 +261,7 @@ export function build_operations(groups: MixedElement[]): MixedElement[] {
         if (!arg) {
           throw Error(`expression ended unexpectedly with operator "${operator_type}"`)
         }
-        if (arg.type == '!' || arg.type == '-') {
-          const element = tmp_groups[index + 3]
-          if (!element) {
-            throw Error(`expression ended unexpectedly with modifier "${operator_type}"`)
-          }
-          index += 3
-          args.push({type: 'mod', mod: arg.type, element: apple_build_operations(element)})
-        } else if (operator_set.has(arg.type as any)) {
+        if (operator_set.has(arg.type as any)) {
           throw Error(`operator "${operator_type}" followed by another operator "${arg.type}`)
         } else {
           args.push(arg)
@@ -234,24 +273,26 @@ export function build_operations(groups: MixedElement[]): MixedElement[] {
         if (operator_type == 'in' && args.length > 1) {
           throw Error('chaining the "in" operator is not permitted')
         }
-        new_groups.push({type: 'operator', operator: operator_type, args: [g, ...args].map(apple_build_operations)})
+        new_groups.push({type: 'operator', operator: operator_type, args: [g, ...args].map(apply_build_operations)})
       } else {
         // operator still to be processed
-        new_groups.push(apple_build_operations(g))
+        new_groups.push(apply_build_operations(g))
       }
     }
     tmp_groups = new_groups
   }
   if (tmp_groups.length != 1) {
+    console.log('clauses: %o', tmp_groups)
     throw Error(`internal error, ${tmp_groups.length} clauses found after reduction, should be just 1`)
   }
-  return tmp_groups
+  return tmp_groups[0]
 }
 
-// MixedElement = Token | TempGroup | Var | TempFunc | TempModified | TempOperation
-function apple_build_operations(g: MixedElement): MixedElement {
+function apply_build_operations(g: MixedElement): MixedElement {
   if (g.type == 'group' || g.type == 'func') {
-    return {...g, args: g.args.map(build_operations)}
+    return {...g, args: g.args.map(a => [build_operations(a)])}
+  } else if (g.type == 'mod') {
+    return {...g, element: build_operations([g.element])}
   } else {
     return g
   }
@@ -326,6 +367,9 @@ export default function build_expression(tokens: Token[]): Clause {
   const groups = build_groups(tokens)
   const chains = build_chains(groups)
   const functions = build_functions(chains)
-  const element = build_operations(functions)[0]
+  // console.log('functions:', JSON.stringify(functions, null, 2))
+  const modified = build_modifiers(functions)
+  // console.log('modified:', JSON.stringify(modified, null, 2))
+  const element = build_operations(modified)
   return mixed_as_clause(element)
 }
