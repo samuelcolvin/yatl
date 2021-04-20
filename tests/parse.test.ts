@@ -58,6 +58,20 @@ const expected_elements: [string, TemplateElements][] = [
     ],
   ],
   [
+    '<template name="CompDefault" x="1">foo {{ foo }}</template><CompDefault/>',
+    [
+      {
+        type: 'component',
+        name: 'CompDefault',
+        loc: {line: 1, col: 60},
+        props: [{name: 'x', value: ['1']}],
+        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
+      },
+    ],
+  ],
+  [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
       '\n',
@@ -100,6 +114,45 @@ const expected_elements: [string, TemplateElements][] = [
         loc: {line: 1, col: 1},
         body: ['hello'],
         if: {type: 'var', symbol: 'if_clause', chain: []},
+      },
+    ],
+  ],
+  [
+    '<div for:x:="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: ['hello'],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x'],
+      },
+    ],
+  ],
+  [
+    '<div for:x="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: ['hello'],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x'],
+      },
+    ],
+  ],
+  [
+    '<div for:x:y="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: ['hello'],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x', 'y'],
       },
     ],
   ],
