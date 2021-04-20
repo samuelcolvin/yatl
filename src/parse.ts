@@ -13,7 +13,7 @@ interface Comment {
   readonly comment: string
 }
 
-interface Prop {
+interface PropDef {
   readonly name: string
   readonly default?: string
 }
@@ -23,45 +23,48 @@ interface ComponentReference {
   used: boolean
 }
 
-interface ComponentDefinition {
-  readonly props: Prop[]
-  readonly body: Body
+export interface ComponentDefinition {
+  readonly props: PropDef[]
+  readonly body: TempChunk[]
   readonly file: string
   readonly loc: FileLocation
 }
 
-interface Attribute {
+interface AttributeDef {
   readonly name: string
+  readonly set_name?: string
+  readonly for_names?: string[]
   readonly value: (string | Clause)[]
-  readonly set?: true
 }
 
-export type Body = (Comment | string | Clause | Element)[]
-
-interface Element {
+interface TempElement {
   readonly name: string
   readonly loc: FileLocation
-  readonly attributes: Attribute[]
-  readonly body: Body
+  readonly attributes: AttributeDef[]
+  readonly body: TempChunk[]
   doctype?: string
   component?: ComponentDefinition | ComponentReference
 }
 
+// TODO convert string to interface Text {text: string}
+export type TempChunk = string | Comment | Clause | TempElement
+
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
 const keep_comment_regex = /^(\s*)keep:\s*/i
+const illegal_names = new Set(['set', 'for', 'if'])
 
 class FileParser {
   private readonly parser: SaxesParser
   private readonly file_name: string
-  private parents: (Element | ComponentDefinition)[] = []
-  current: Element | ComponentDefinition
+  private parents: (TempElement | ComponentDefinition)[] = []
+  current: TempElement | ComponentDefinition
   components: FileComponents = {}
-  private external_component_tags: Element[] = [] // elements referencing external components
+  private external_component_tags: TempElement[] = [] // elements referencing external components
   private tag_col = 0
   private is_component = false
-  private attributes: Attribute[] = []
-  private props: Prop[] = []
+  private attributes: AttributeDef[] = []
+  private props: PropDef[] = []
 
   constructor(file_name: string) {
     this.file_name = file_name
@@ -111,29 +114,51 @@ class FileParser {
   }
 
   private on_attribute(attr: AttributeEventForOptions<any>) {
-    const {name, value} = attr
+    const {name} = attr
+    const raw_value = attr.value
     if (this.is_component) {
       if (name != 'name' && name != 'id' && name != 'path') {
         // TODO allow optional empty string via `foobar:optional=""`, prevent names ending with :
-        if (value == '') {
+        if (illegal_names.has(name)) {
+          throw new Error(`"${name}" is not allowed as a component property name`)
+        }
+        if (raw_value == '') {
           this.props.push({name})
         } else {
-          this.props.push({name, default: value})
+          this.props.push({name, default: raw_value})
         }
       }
     } else {
-      if (name.endsWith(':')) {
-        this.attributes.push({name: name.slice(0, -1), value: [build_clause(value)]})
-      } else if (name.startsWith('set:')) {
-        this.attributes.push({name: name.substr(4), value: [build_clause(value)], set: true})
+      if (!name.includes(':')) {
+        if (illegal_names.has(name)) {
+          throw new Error(`"${name}" is an illegal name, you might have missed a colon at the end of the name`)
+        }
+        this.attributes.push({name, value: this.parse_string(raw_value)})
+        return
+      }
+      const value = [build_clause(raw_value)]
+      if (name.startsWith('set:')) {
+        const set_name = name.substr(4).replace(/:+$/, '')
+        this.attributes.push({name: 'set', set_name, value})
+      } else if (name.startsWith('if:')) {
+        this.attributes.push({name: 'if', value})
+      } else if (name.startsWith('for:')) {
+        const for_names = name.substr(4).replace(/:+$/, '').split(':')
+        if (!for_names.every(n => n.length > 0)) {
+          throw new Error(`Empty names are not allowed in for expressions, got ${JSON.stringify(for_names)}`)
+        }
+        this.attributes.push({name: 'set', for_names, value})
       } else {
-        this.attributes.push({name, value: this.parse_string(value)})
+        if (/^[^:]:$/.test(name)) {
+          throw new Error(`Invalid name "${name}"`)
+        }
+        this.attributes.push({name: name.slice(0, -1), value})
       }
     }
   }
 
   private on_opentag(tag: SaxesTagPlain): void {
-    let new_tag: Element | ComponentDefinition | null = null
+    let new_tag: TempElement | ComponentDefinition | null = null
     const loc: FileLocation = {line: this.parser.line, col: this.tag_col}
     if (this.is_component) {
       const name: string | undefined = tag.attributes.name || tag.attributes.id
@@ -226,7 +251,7 @@ class FileParser {
     let chunk_start = 0
     const parts: (string | Clause)[] = []
     while (true) {
-      // if "{{" is not found in the rest of the string, indoxOf returns -1, so clause_start will equal 1
+      // if "{{" is not found in the rest of the string, indexOf returns -1, so clause_start will equal 1
       const chunk_end = text.indexOf('{{', chunk_start)
       if (chunk_end == -1) {
         break
@@ -253,10 +278,10 @@ class FileParser {
         }
       }
     }
+    // FIXME this looks wrong, maybe should be text.substr(chunk_start)
     parts.push(text.substr(chunk_start, text.length - 1))
     return parts.filter(p => p)
   }
-
   private check_missing_props(name: string, component: ComponentDefinition, tag_attrs: Attribute[]): void {
     const attr_names = new Set(tag_attrs.map(a => a.name))
     const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name)).map(p => p.name)
@@ -277,7 +302,7 @@ class TemplateLoader {
     this.file_loader = file_loader
   }
 
-  async load(): Promise<Body> {
+  async load(): Promise<TempChunk[]> {
     const parser = await this.parse_file(this.base_file_path)
     parser.check()
     return parser.current.body
@@ -322,7 +347,148 @@ class TemplateLoader {
   }
 }
 
-export async function load_template(file_path: string, file_loader: FileLoader): Promise<Body> {
+interface Attribute {
+  readonly name: string
+  readonly value: (string | Clause)[]
+}
+
+interface TagElement {
+  readonly type: 'tag'
+  readonly name: string
+  readonly loc: FileLocation
+  readonly set_attributes?: Attribute[]
+  readonly attributes?: Attribute[]
+  readonly body?: TemplateElement[]
+  readonly if?: Clause
+  readonly for?: Clause
+  readonly for_names?: string[]
+  readonly doctype?: string
+}
+
+interface Prop {
+  readonly name: string
+  readonly value: (string | Clause)[]
+}
+
+interface ComponentElement {
+  readonly type: 'component'
+  readonly name: string
+  readonly loc: FileLocation
+  readonly props: Prop[]
+  readonly if?: Clause
+  readonly for?: Clause
+  readonly for_names?: string[]
+  readonly body: TemplateElement[]
+  readonly comp_file: string
+  readonly comp_loc: FileLocation
+}
+
+
+
+interface COPYAttribute {
+  readonly name: string
+  readonly set_name?: string
+  readonly for_names?: string[]
+  readonly value: (string | Clause)[]
+}
+
+interface COPYTempElement {
+  readonly name: string
+  readonly loc: FileLocation
+  readonly attributes: AttributeDef[]
+  readonly body: TempChunk[]
+  doctype?: string
+  component?: ComponentDefinition | ComponentReference
+}
+
+interface COPYComponentDefinition {
+  readonly props: PropDef[]
+  readonly body: TempChunk[]
+  readonly file: string
+  readonly loc: FileLocation
+}
+
+export type TemplateElement = string | Comment | Clause | TagElement | ComponentElement
+
+
+function convert_element(el: TempElement): TagElement | ComponentElement {
+  const {name, loc, component} = el
+  const set_attributes: Attribute[] = []
+  const attributes: Attribute[] = []
+  let _if: Clause | null = null
+  let _for: Clause | null = null
+  let _for_names: string[] | null = null
+  for (const attr of el.attributes) {
+    const {name, value} = attr
+    if ('set_name' in attr) {
+      set_attributes.push({name: attr.set_name as string, value})
+    } else if ('for_names' in attr) {
+      // TODO check length and clause
+      _for = value[0] as Clause
+      _for_names = attr.for_names as string[]
+    } else if (name == 'if') {
+      // TODO check length and clause
+      _if = value[0] as Clause
+    } else {
+      attributes.push({name, value})
+    }
+  }
+
+  if (typeof component == 'undefined') {
+    return {
+      type: 'tag',
+      name,
+      loc,
+      set_attributes: set_attributes.length ? set_attributes : undefined,
+      attributes,
+      body: el.body.length ? el.body.map(convert_chunk) : undefined,
+      if: _if || undefined,
+      for: _for || undefined,
+      for_names: _for_names || undefined,
+      doctype: el.doctype,
+    }
+  } else {
+    if ('path' in component) {
+      throw Error(`Internal Error: Component reference "${el.name}" found after loading template`)
+    }
+    // TODO error on set_attributes
+    const attr_lookup = Object.fromEntries(attributes.map(attr => [attr.name, attr.value]))
+    return {
+      type: 'component',
+      name: el.name,
+      loc: el.loc,
+      props: component.props.map(p => {
+        const {name} = p
+        const _default = p.default
+        const attr = attr_lookup[p.name]
+        if (!attr) {
+          if (typeof _default == 'undefined') {
+            throw Error(`The property ${name} were omitted when calling ${name}: ${missing_props.join(', ')}`)
+          }
+          return {name}
+        }
+      }),
+      if: _if || undefined,
+      for: _for || undefined,
+      for_names: _for_names || undefined,
+      attributes: el.attributes,
+      props: component.props,
+      body: component.body,
+      comp_file: component.file,
+      comp_loc: component.loc,
+    }
+  }
+}
+function convert_chunk(chunk: TempChunk): TemplateElement {
+  if (typeof chunk == 'string' || 'comment' in chunk || !('name' in chunk)) {
+    return chunk
+  } else {
+    return convert_element(chunk)
+  }
+}
+
+export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElement[]> {
   const loader = new TemplateLoader(file_path, file_loader)
-  return loader.load()
+  const chunks = await loader.load()
+  return chunks.map(convert_chunk)
 }

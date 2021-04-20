@@ -1,7 +1,7 @@
 import each from 'jest-each'
 
 import type {Context, Functions} from '../src/expressions/evaluate'
-import {evaluate} from '../src/expressions'
+import {evaluate_string} from '../src/expressions'
 
 const evaluate_expect: [string, any][] = [
   ['a.b', 'b-value'],
@@ -108,12 +108,12 @@ const test_functions: Functions = {
 
 describe('evaluate', () => {
   it('maths', async () => {
-    expect(await evaluate('1 + 2', {}, {})).toEqual(3)
+    expect(await evaluate_string('1 + 2', {}, {})).toEqual(3)
   })
   it('lookup', async () => {
-    expect(await evaluate('x', {x: 'foobar'}, {})).toEqual('foobar')
+    expect(await evaluate_string('x', {x: 'foobar'}, {})).toEqual('foobar')
   })
-  each(evaluate_expect).test('expected_expressions %s -> %j', async (expression, expected_result) => {
-    expect(await evaluate(expression, text_context, test_functions)).toStrictEqual(expected_result)
+  each(evaluate_expect).test('evaluate %s -> %j', async (expression, expected_result) => {
+    expect(await evaluate_string(expression, text_context, test_functions)).toStrictEqual(expected_result)
   })
 })
