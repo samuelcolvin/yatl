@@ -278,10 +278,10 @@ class FileParser {
         }
       }
     }
-    // FIXME this looks wrong, maybe should be text.substr(chunk_start)
-    parts.push(text.substr(chunk_start, text.length - 1))
+    parts.push(text.slice(chunk_start))
     return parts.filter(p => p)
   }
+
   private check_missing_props(name: string, component: ComponentDefinition, tag_attrs: Attribute[]): void {
     const attr_names = new Set(tag_attrs.map(a => a.name))
     const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name)).map(p => p.name)

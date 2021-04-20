@@ -2,7 +2,7 @@ import {load_template, TemplateElements, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, TemplateElements][] = [
-  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}]],
+  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}]],
   [
     '<div>before{{ name }}after</div>',
     [
@@ -14,7 +14,7 @@ const expected_elements: [string, TemplateElements][] = [
       },
     ],
   ],
-  ['   <div>hello</div>', ['  ', {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: ['hell']}]],
+  ['   <div>hello</div>', ['   ', {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: ['hello']}]],
   ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
@@ -23,7 +23,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hell'],
+        body: ['hello'],
         attributes: [
           {
             name: 'class',
@@ -45,11 +45,12 @@ const expected_elements: [string, TemplateElements][] = [
   [
     '<template name="IntComponent" foo="">foo {{ foo }}</template>\n<IntComponent foo="xxx"/>',
     [
+      '\n',
       {
         type: 'component',
         name: 'IntComponent',
         loc: {line: 2, col: 1},
-        props: [{name: 'foo', value: ['xx']}],
+        props: [{name: 'foo', value: ['xxx']}],
         body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
         comp_file: 'root.html',
         comp_loc: {line: 1, col: 1},
@@ -59,11 +60,12 @@ const expected_elements: [string, TemplateElements][] = [
   [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
+      '\n',
       {
         type: 'component',
         name: 'ExtComponent',
         loc: {line: 2, col: 1},
-        props: [{name: 'foo', value: ['xx']}],
+        props: [{name: 'foo', value: ['xxx']}],
         body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
         comp_file: 'ExtComponent.html',
         comp_loc: {line: 1, col: 1},
@@ -84,10 +86,22 @@ const expected_elements: [string, TemplateElements][] = [
       },
     ],
   ],
-  ['<div>hello</div><!-- a comment-->', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}]],
+  ['<div>hello</div><!-- a comment-->', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}]],
   [
     '<div>hello</div><!-- keep: a comment-->',
-    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}, {comment: ' a comment'}],
+    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}, {comment: ' a comment'}],
+  ],
+  [
+    '<div if:="if_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: ['hello'],
+        if: {type: 'var', symbol: 'if_clause', chain: []},
+      },
+    ],
   ],
 ]
 
