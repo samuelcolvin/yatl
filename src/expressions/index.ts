@@ -31,4 +31,3 @@ export async function evaluate_clause_str(clause: Clause, context: Context, func
     throw TypeError(`Only strings and numbers can be rendered in templates, not ${typeof v}`)
   }
 }
-

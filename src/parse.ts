@@ -358,7 +358,7 @@ interface TagElement {
   readonly loc: FileLocation
   readonly set_attributes?: Attribute[]
   readonly attributes?: Attribute[]
-  readonly body?: TemplateElement[]
+  readonly body?: TemplateElements
   readonly if?: Clause
   readonly for?: Clause
   readonly for_names?: string[]
@@ -378,38 +378,14 @@ interface ComponentElement {
   readonly if?: Clause
   readonly for?: Clause
   readonly for_names?: string[]
-  readonly body: TemplateElement[]
+  readonly body: TemplateElements
   readonly comp_file: string
   readonly comp_loc: FileLocation
-}
-
-
-
-interface COPYAttribute {
-  readonly name: string
-  readonly set_name?: string
-  readonly for_names?: string[]
-  readonly value: (string | Clause)[]
-}
-
-interface COPYTempElement {
-  readonly name: string
-  readonly loc: FileLocation
-  readonly attributes: AttributeDef[]
-  readonly body: TempChunk[]
-  doctype?: string
-  component?: ComponentDefinition | ComponentReference
-}
-
-interface COPYComponentDefinition {
-  readonly props: PropDef[]
-  readonly body: TempChunk[]
-  readonly file: string
-  readonly loc: FileLocation
+  // TODO children
 }
 
 export type TemplateElement = string | Comment | Clause | TagElement | ComponentElement
-
+export type TemplateElements = TemplateElement[]
 
 function convert_element(el: TempElement): TagElement | ComponentElement {
   const {name, loc, component} = el
@@ -434,14 +410,14 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
     }
   }
 
-  if (typeof component == 'undefined') {
+  if (component === undefined) {
     return {
       type: 'tag',
       name,
       loc,
       set_attributes: set_attributes.length ? set_attributes : undefined,
-      attributes,
       body: el.body.length ? el.body.map(convert_chunk) : undefined,
+      attributes: attributes.length ? attributes : undefined,
       if: _if || undefined,
       for: _for || undefined,
       for_names: _for_names || undefined,
@@ -457,37 +433,50 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       type: 'component',
       name: el.name,
       loc: el.loc,
-      props: component.props.map(p => {
-        const {name} = p
-        const _default = p.default
-        const attr = attr_lookup[p.name]
-        if (!attr) {
-          if (typeof _default == 'undefined') {
-            throw Error(`The property ${name} were omitted when calling ${name}: ${missing_props.join(', ')}`)
+      props: component.props.map(
+        (p: PropDef): Prop => {
+          const {name} = p
+          const _default = p.default
+          const attr = attr_lookup[p.name]
+          if (attr) {
+            return {name, value: attr}
+          } else {
+            if (_default === undefined) {
+              throw Error(`The required property "${name}" was not providing when calling ${el.name}`)
+            } else {
+              return {name, value: [_default]}
+            }
           }
-          return {name}
-        }
-      }),
+        },
+      ),
       if: _if || undefined,
       for: _for || undefined,
       for_names: _for_names || undefined,
-      attributes: el.attributes,
-      props: component.props,
-      body: component.body,
+      body: component.body.map(convert_chunk),
       comp_file: component.file,
       comp_loc: component.loc,
     }
   }
 }
+
+function remove_undefined<T extends Record<any, any>>(obj: T): T {
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      delete obj[key]
+    }
+  }
+  return obj
+}
+
 function convert_chunk(chunk: TempChunk): TemplateElement {
   if (typeof chunk == 'string' || 'comment' in chunk || !('name' in chunk)) {
     return chunk
   } else {
-    return convert_element(chunk)
+    return remove_undefined(convert_element(chunk))
   }
 }
 
-export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElement[]> {
+export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElements> {
   const loader = new TemplateLoader(file_path, file_loader)
   const chunks = await loader.load()
   return chunks.map(convert_chunk)

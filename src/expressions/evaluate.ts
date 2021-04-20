@@ -228,7 +228,7 @@ export default class Evaluator {
 
   private lookup_value(v: Var, namespace: Record<string, any>, namespace_name: string): any {
     let value = namespace[v.symbol]
-    if (typeof value == 'undefined') {
+    if (value === undefined) {
       throw Error(`"${v.symbol}" not found in ${namespace_name}`)
     }
     const steps: (string | number)[] = []
@@ -247,7 +247,7 @@ export default class Evaluator {
       let key: string | number = c.lookup
       if (c.type == 'symbol') {
         const _key = this.context[c.lookup]
-        if (typeof _key == 'undefined') {
+        if (_key === undefined) {
           throw Error(`lookup "${c.lookup}" not found`)
         } else if (typeof _key != 'string' && typeof _key != 'number') {
           throw Error(`"${c.lookup}" must be a string or number`)

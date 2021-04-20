@@ -1,25 +1,26 @@
-import {load_template, Body, FileLoader} from '../src/parse'
+import {load_template, TemplateElements, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
-const expected_elements: [string, Body][] = [
-  ['<div>hello</div>', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
+const expected_elements: [string, TemplateElements][] = [
+  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}]],
   [
     '<div>before{{ name }}after</div>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
         body: ['before', {type: 'var', symbol: 'name', chain: []}, 'after'],
-        attributes: [],
       },
     ],
   ],
-  ['   <div>hello</div>', ['  ', {name: 'div', loc: {line: 1, col: 4}, body: ['hell'], attributes: []}]],
+  ['   <div>hello</div>', ['  ', {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: ['hell']}]],
   ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
         body: ['hell'],
@@ -45,16 +46,13 @@ const expected_elements: [string, Body][] = [
     '<template name="IntComponent" foo="">foo {{ foo }}</template>\n<IntComponent foo="xxx"/>',
     [
       {
+        type: 'component',
         name: 'IntComponent',
         loc: {line: 2, col: 1},
-        body: [],
-        attributes: [{name: 'foo', value: ['xx']}],
-        component: {
-          props: [{name: 'foo'}],
-          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
-          file: 'root.html',
-          loc: {line: 1, col: 1},
-        },
+        props: [{name: 'foo', value: ['xx']}],
+        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
       },
     ],
   ],
@@ -62,16 +60,13 @@ const expected_elements: [string, Body][] = [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
       {
+        type: 'component',
         name: 'ExtComponent',
         loc: {line: 2, col: 1},
-        body: [],
-        attributes: [{name: 'foo', value: ['xx']}],
-        component: {
-          props: [{name: 'foo'}],
-          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
-          file: 'ExtComponent.html',
-          loc: {line: 1, col: 1},
-        },
+        props: [{name: 'foo', value: ['xx']}],
+        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        comp_file: 'ExtComponent.html',
+        comp_loc: {line: 1, col: 1},
       },
     ],
   ],
@@ -79,20 +74,20 @@ const expected_elements: [string, Body][] = [
     '<div set:x="1" set:y="2"/>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: [],
-        attributes: [
-          {name: 'x', value: [{type: 'num', value: 1}], set: true},
-          {name: 'y', value: [{type: 'num', value: 2}], set: true},
+        set_attributes: [
+          {name: 'x', value: [{type: 'num', value: 1}]},
+          {name: 'y', value: [{type: 'num', value: 2}]},
         ],
       },
     ],
   ],
-  ['<div>hello</div><!-- a comment-->', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
+  ['<div>hello</div><!-- a comment-->', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}]],
   [
     '<div>hello</div><!-- keep: a comment-->',
-    [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}, {comment: ' a comment'}],
+    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hell']}, {comment: ' a comment'}],
   ],
 ]
 
@@ -117,11 +112,11 @@ describe('load_template', () => {
 
   // test('create-expected_elements', async () => {
   //   const new_expected_elements = []
-  //   for (const [xml,] of expected_elements) {
+  //   for (const [xml] of expected_elements) {
   //     const loader = get_loader(xml)
   //     const ee = await load_template('root.html', loader)
   //     new_expected_elements.push([xml, ee])
   //   }
-  //   console.log('const expected_elements: [string, Body][] = %j', new_expected_elements)
+  //   console.log('const expected_elements: [string, TemplateElements][] = %j', new_expected_elements)
   // })
 })

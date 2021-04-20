@@ -1,7 +1,7 @@
 import type {Token, TokenType} from '../src/expressions/tokenize'
 import type {MixedElement, Clause, Var} from '../src/expressions/build'
 
-export const token_as_compact = (t: Token): string => (typeof t.value != 'undefined' ? `${t.type}:${t.value}` : t.type)
+export const token_as_compact = (t: Token): string => (t.value != undefined ? `${t.type}:${t.value}` : t.type)
 
 export function compact_as_token(s: string): Token {
   if (s.includes(':')) {
