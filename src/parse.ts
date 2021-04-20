@@ -52,7 +52,6 @@ interface TempElement {
   component?: ComponentDefinition | ComponentReference
 }
 
-// TODO convert string to interface Text {text: string}
 export type TempChunk = Text | Comment | Clause | TempElement
 
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
@@ -362,6 +361,18 @@ interface ComponentElement {
 export type TemplateElement = Text | Comment | Clause | TagElement | ComponentElement
 export type TemplateElements = TemplateElement[]
 
+function one_clause(value: (Text | Clause)[], attr: string): Clause {
+  if (value.length != 1) {
+    throw new Error(`One Clause required as value for ${attr} attributes`)
+  }
+  const first = value[0]
+  if (first.type == 'text') {
+    throw new Error(`text values are not valid as ${attr} values`)
+  } else {
+    return first
+  }
+}
+
 function convert_element(el: TempElement): TagElement | ComponentElement {
   const {name, loc, component} = el
   const set_attributes: Attribute[] = []
@@ -374,12 +385,10 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
     if ('set_name' in attr) {
       set_attributes.push({name: attr.set_name as string, value})
     } else if ('for_names' in attr) {
-      // TODO check length and clause
-      _for = value[0] as Clause
+      _for = one_clause(value, 'for')
       _for_names = attr.for_names as string[]
     } else if (name == 'if') {
-      // TODO check length and clause
-      _if = value[0] as Clause
+      _if = one_clause(value, 'if')
     } else {
       attributes.push({name, value})
     }
@@ -401,8 +410,9 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
   } else {
     if ('path' in component) {
       throw Error(`Internal Error: Component reference "${el.name}" found after loading template`)
+    } else if (set_attributes.length) {
+      throw new Error('"set:" style attributes not permitted on components')
     }
-    // TODO error on set_attributes
     const attr_lookup = Object.fromEntries(attributes.map(attr => [attr.name, attr.value]))
     return {
       type: 'component',
