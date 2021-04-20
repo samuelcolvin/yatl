@@ -19,6 +19,19 @@ const expected_elements: [string, TemplateElements][] = [
     ],
   ],
   [
+    '<!DOCTYPE html>\n<div>foobar</div>',
+    [
+      {type: 'doctype', doctype: ' html'},
+      {type: 'text', text: '\n'},
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 2, col: 1},
+        body: [{type: 'text', text: 'foobar'}],
+      },
+    ],
+  ],
+  [
     '   <div>hello</div>',
     [
       {type: 'text', text: '   '},

@@ -8,6 +8,11 @@ interface FileLocation {
   readonly col: number
 }
 
+interface DocType {
+  readonly type: 'doctype'
+  readonly doctype: string
+}
+
 interface Text {
   readonly type: 'text'
   readonly text: string
@@ -48,11 +53,10 @@ interface TempElement {
   readonly loc: FileLocation
   readonly attributes: AttributeDef[]
   readonly body: TempChunk[]
-  doctype?: string
   component?: ComponentDefinition | ComponentReference
 }
 
-export type TempChunk = Text | Comment | Clause | TempElement
+export type TempChunk = DocType | Text | Comment | Clause | TempElement
 
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
@@ -70,7 +74,7 @@ class FileParser {
   private attributes: AttributeDef[] = []
   private props: PropDef[] = []
 
-  constructor(file_name: string) {
+  constructor(file_name: string, xml: string) {
     this.file_name = file_name
     this.current = {
       type: 'temp_element',
@@ -79,7 +83,11 @@ class FileParser {
       loc: {line: 1, col: 1},
       body: [],
     }
-    this.parser = new SaxesParser({fileName: file_name, fragment: true})
+    // we have to choose whether to use fragment mode based on whether the string starts with a doctype, because:
+    // - doctype declarations are illegal if fragment is true
+    // - having more than one root element is illegal if fragments is false
+    const fragment = !/^\s*<!doctype/i.test(xml)
+    this.parser = new SaxesParser({fileName: file_name, fragment})
     this.parser.on('error', this.on_error.bind(this))
     this.parser.on('opentagstart', this.on_opentagstart.bind(this))
     this.parser.on('attribute', this.on_attribute.bind(this))
@@ -88,9 +96,7 @@ class FileParser {
     this.parser.on('doctype', this.on_doctype.bind(this))
     this.parser.on('text', this.on_text.bind(this))
     this.parser.on('comment', this.on_comment.bind(this))
-  }
 
-  parse(xml: string) {
     this.parser.write(xml).close()
   }
 
@@ -212,11 +218,8 @@ class FileParser {
   private on_doctype(doctype: string): void {
     if (this.parents.length) {
       throw Error('doctype can only be set on the root element')
-    } else if ('props' in this.current) {
-      // shouldn't happen
-      throw Error("something has gone wrong, you can't set doctype on a component")
     } else {
-      this.current.doctype = doctype
+      this.current.body.push({type: 'doctype', doctype: doctype})
     }
   }
 
@@ -284,8 +287,7 @@ class TemplateLoader {
 
   private async parse_file(file_path: string): Promise<FileParser> {
     const xml = await this.file_loader(file_path)
-    const parser = new FileParser(file_path)
-    parser.parse(xml)
+    const parser = new FileParser(file_path, xml)
     await this.load_external_components(parser.components)
     return parser
   }
@@ -336,7 +338,6 @@ interface TagElement {
   readonly if?: Clause
   readonly for?: Clause
   readonly for_names?: string[]
-  readonly doctype?: string
 }
 
 interface Prop {
@@ -358,7 +359,7 @@ interface ComponentElement {
   readonly comp_loc: FileLocation
 }
 
-export type TemplateElement = Text | Comment | Clause | TagElement | ComponentElement
+export type TemplateElement = DocType | Text | Comment | Clause | TagElement | ComponentElement
 export type TemplateElements = TemplateElement[]
 
 function one_clause(value: (Text | Clause)[], attr: string): Clause {
@@ -405,7 +406,6 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       if: _if || undefined,
       for: _for || undefined,
       for_names: _for_names || undefined,
-      doctype: el.doctype,
     }
   } else {
     if ('path' in component) {
