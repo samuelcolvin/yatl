@@ -2,7 +2,7 @@ import {load_template, TemplateElements, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
 const expected_elements: [string, TemplateElements][] = [
-  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}]],
+  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}]],
   [
     '<div>before{{ name }}after</div>',
     [
@@ -10,11 +10,21 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['before', {type: 'var', symbol: 'name', chain: []}, 'after'],
+        body: [
+          {type: 'text', text: 'before'},
+          {type: 'var', symbol: 'name', chain: []},
+          {type: 'text', text: 'after'},
+        ],
       },
     ],
   ],
-  ['   <div>hello</div>', ['   ', {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: ['hello']}]],
+  [
+    '   <div>hello</div>',
+    [
+      {type: 'text', text: '   '},
+      {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: [{type: 'text', text: 'hello'}]},
+    ],
+  ],
   ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
@@ -23,7 +33,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hello'],
+        body: [{type: 'text', text: 'hello'}],
         attributes: [
           {
             name: 'class',
@@ -45,13 +55,16 @@ const expected_elements: [string, TemplateElements][] = [
   [
     '<template name="IntComponent" foo="">foo {{ foo }}</template>\n<IntComponent foo="xxx"/>',
     [
-      '\n',
+      {type: 'text', text: '\n'},
       {
         type: 'component',
         name: 'IntComponent',
         loc: {line: 2, col: 1},
-        props: [{name: 'foo', value: ['xxx']}],
-        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        props: [{name: 'foo', value: [{type: 'text', text: 'xxx'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
         comp_file: 'root.html',
         comp_loc: {line: 1, col: 1},
       },
@@ -64,8 +77,11 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'component',
         name: 'CompDefault',
         loc: {line: 1, col: 60},
-        props: [{name: 'x', value: ['1']}],
-        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        props: [{name: 'x', value: [{type: 'text', text: '1'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
         comp_file: 'root.html',
         comp_loc: {line: 1, col: 1},
       },
@@ -74,14 +90,17 @@ const expected_elements: [string, TemplateElements][] = [
   [
     '<template name="ChildrenDefault">children:{{ children }}</template>\n<ChildrenDefault>child.</ChildrenDefault>',
     [
-      '\n',
+      {type: 'text', text: '\n'},
       {
         type: 'component',
         name: 'ChildrenDefault',
         loc: {line: 2, col: 1},
         props: [],
-        body: ['children:', {type: 'var', symbol: 'children', chain: []}],
-        children: ['child.'],
+        body: [
+          {type: 'text', text: 'children:'},
+          {type: 'var', symbol: 'children', chain: []},
+        ],
+        children: [{type: 'text', text: 'child.'}],
         comp_file: 'root.html',
         comp_loc: {line: 1, col: 1},
       },
@@ -90,13 +109,16 @@ const expected_elements: [string, TemplateElements][] = [
   [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
-      '\n',
+      {type: 'text', text: '\n'},
       {
         type: 'component',
         name: 'ExtComponent',
         loc: {line: 2, col: 1},
-        props: [{name: 'foo', value: ['xxx']}],
-        body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
+        props: [{name: 'foo', value: [{type: 'text', text: 'xxx'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
         comp_file: 'ExtComponent.html',
         comp_loc: {line: 1, col: 1},
       },
@@ -116,10 +138,16 @@ const expected_elements: [string, TemplateElements][] = [
       },
     ],
   ],
-  ['<div>hello</div><!-- a comment-->', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}]],
+  [
+    '<div>hello</div><!-- a comment-->',
+    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}],
+  ],
   [
     '<div>hello</div><!-- keep: a comment-->',
-    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: ['hello']}, {comment: ' a comment'}],
+    [
+      {type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]},
+      {type: 'comment', comment: ' a comment'},
+    ],
   ],
   [
     '<div if:="if_clause">hello</div>',
@@ -128,7 +156,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hello'],
+        body: [{type: 'text', text: 'hello'}],
         if: {type: 'var', symbol: 'if_clause', chain: []},
       },
     ],
@@ -140,7 +168,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hello'],
+        body: [{type: 'text', text: 'hello'}],
         for: {type: 'var', symbol: 'for_clause', chain: []},
         for_names: ['x'],
       },
@@ -153,7 +181,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hello'],
+        body: [{type: 'text', text: 'hello'}],
         for: {type: 'var', symbol: 'for_clause', chain: []},
         for_names: ['x'],
       },
@@ -166,7 +194,7 @@ const expected_elements: [string, TemplateElements][] = [
         type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hello'],
+        body: [{type: 'text', text: 'hello'}],
         for: {type: 'var', symbol: 'for_clause', chain: []},
         for_names: ['x', 'y'],
       },

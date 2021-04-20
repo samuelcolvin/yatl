@@ -1,5 +1,4 @@
 import {SaxesParser, SaxesTagPlain, StartTagForOptions, AttributeEventForOptions} from 'saxes'
-
 import {is_upper_case, remove_undefined} from './utils'
 import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
@@ -9,7 +8,13 @@ interface FileLocation {
   readonly col: number
 }
 
+interface Text {
+  readonly type: 'text'
+  readonly text: string
+}
+
 interface Comment {
+  readonly type: 'comment'
   readonly comment: string
 }
 
@@ -34,10 +39,11 @@ interface AttributeDef {
   readonly name: string
   readonly set_name?: string
   readonly for_names?: string[]
-  readonly value: (string | Clause)[]
+  readonly value: (Text | Clause)[]
 }
 
 interface TempElement {
+  readonly type: 'temp_element'
   readonly name: string
   readonly loc: FileLocation
   readonly attributes: AttributeDef[]
@@ -47,7 +53,7 @@ interface TempElement {
 }
 
 // TODO convert string to interface Text {text: string}
-export type TempChunk = string | Comment | Clause | TempElement
+export type TempChunk = Text | Comment | Clause | TempElement
 
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
@@ -59,8 +65,7 @@ class FileParser {
   private readonly file_name: string
   private parents: (TempElement | ComponentDefinition)[] = []
   current: TempElement | ComponentDefinition
-  components: FileComponents = {}
-  private external_component_tags: TempElement[] = [] // elements referencing external components
+  readonly components: FileComponents = {}
   private tag_col = 0
   private is_component = false
   private attributes: AttributeDef[] = []
@@ -69,6 +74,7 @@ class FileParser {
   constructor(file_name: string) {
     this.file_name = file_name
     this.current = {
+      type: 'temp_element',
       name: 'root',
       attributes: [],
       loc: {line: 1, col: 1},
@@ -87,21 +93,6 @@ class FileParser {
 
   parse(xml: string) {
     this.parser.write(xml).close()
-  }
-
-  check() {
-    /**
-     * check the validity of the template, in particular:
-     * - check tags match the props of their component where applicable
-     */
-    for (const tag of this.external_component_tags) {
-      const component = tag.component as ComponentDefinition | ComponentReference
-      if ('props' in component) {
-        this.check_missing_props(tag.name, component, tag.attributes)
-      } else {
-        throw Error(`Component ${tag.name} not loaded`)
-      }
-    }
   }
 
   private on_error(e: Error): void {
@@ -182,7 +173,6 @@ class FileParser {
     } else {
       const {name} = tag
       let component: ComponentDefinition | ComponentReference | null = null
-      let external = false
       if (is_upper_case(name[0])) {
         // assume this is a component
         component = this.components[name] || null
@@ -192,19 +182,13 @@ class FileParser {
               `Either define the component or, if you meant to refer to a standard HTML tag, use the lower case name.`,
           )
         }
-        if ('props' in component) {
-          this.check_missing_props(name, component, this.attributes)
-        } else {
-          external = true
+        if (!('props' in component)) {
           component.used = true
         }
       }
-      new_tag = {name, loc, body: [], attributes: this.attributes}
+      new_tag = {type: 'temp_element', name, loc, body: [], attributes: this.attributes}
       if (component) {
         new_tag.component = component
-        if (external) {
-          this.external_component_tags.push(new_tag)
-        }
       }
 
       this.attributes = []
@@ -243,20 +227,20 @@ class FileParser {
 
   private on_comment(comment: string): void {
     if (keep_comment_regex.test(comment)) {
-      this.current.body.push({comment: comment.replace(keep_comment_regex, '$1')})
+      this.current.body.push({type: 'comment', comment: comment.replace(keep_comment_regex, '$1')})
     }
   }
 
-  private parse_string(text: string): (string | Clause)[] {
+  private parse_string(text: string): (Text | Clause)[] {
     let chunk_start = 0
-    const parts: (string | Clause)[] = []
+    const parts: (Text | Clause)[] = []
     while (true) {
       // if "{{" is not found in the rest of the string, indexOf returns -1, so clause_start will equal 1
       const chunk_end = text.indexOf('{{', chunk_start)
       if (chunk_end == -1) {
         break
       }
-      parts.push(text.substr(chunk_start, chunk_end - chunk_start))
+      parts.push({type: 'text', text: text.substr(chunk_start, chunk_end - chunk_start)})
 
       let string_start: string | null = null
       for (let index = chunk_end + 2; index < text.length; index++) {
@@ -278,16 +262,8 @@ class FileParser {
         }
       }
     }
-    parts.push(text.slice(chunk_start))
-    return parts.filter(p => p)
-  }
-
-  private check_missing_props(name: string, component: ComponentDefinition, tag_attrs: Attribute[]): void {
-    const attr_names = new Set(tag_attrs.map(a => a.name))
-    const missing_props = component.props.filter(p => !p.default && !attr_names.has(p.name)).map(p => p.name)
-    if (missing_props.length) {
-      throw Error(`The following properties were omitted when calling ${name}: ${missing_props.join(', ')}`)
-    }
+    parts.push({type: 'text', text: text.slice(chunk_start)})
+    return parts.filter(p => !(p.type == 'text' && !p.text))
   }
 }
 
@@ -304,7 +280,6 @@ class TemplateLoader {
 
   async load(): Promise<TempChunk[]> {
     const parser = await this.parse_file(this.base_file_path)
-    parser.check()
     return parser.current.body
   }
 
@@ -349,7 +324,7 @@ class TemplateLoader {
 
 interface Attribute {
   readonly name: string
-  readonly value: (string | Clause)[]
+  readonly value: (Text | Clause)[]
 }
 
 interface TagElement {
@@ -367,7 +342,7 @@ interface TagElement {
 
 interface Prop {
   readonly name: string
-  readonly value: (string | Clause)[]
+  readonly value: (Text | Clause)[]
 }
 
 interface ComponentElement {
@@ -384,7 +359,7 @@ interface ComponentElement {
   readonly comp_loc: FileLocation
 }
 
-export type TemplateElement = string | Comment | Clause | TagElement | ComponentElement
+export type TemplateElement = Text | Comment | Clause | TagElement | ComponentElement
 export type TemplateElements = TemplateElement[]
 
 function convert_element(el: TempElement): TagElement | ComponentElement {
@@ -436,15 +411,14 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       props: component.props.map(
         (p: PropDef): Prop => {
           const {name} = p
-          const _default = p.default
           const attr = attr_lookup[p.name]
           if (attr) {
             return {name, value: attr}
           } else {
-            if (_default === undefined) {
+            if (p.default === undefined) {
               throw Error(`The required property "${name}" was not providing when calling ${el.name}`)
             } else {
-              return {name, value: [_default]}
+              return {name, value: [{type: 'text', text: p.default}]}
             }
           }
         },
@@ -461,10 +435,10 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
 }
 
 function convert_chunk(chunk: TempChunk): TemplateElement {
-  if (typeof chunk == 'string' || 'comment' in chunk || !('name' in chunk)) {
-    return chunk
-  } else {
+  if (chunk.type == 'temp_element') {
     return remove_undefined(convert_element(chunk))
+  } else {
+    return chunk
   }
 }
 
