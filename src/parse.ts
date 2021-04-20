@@ -379,9 +379,9 @@ interface ComponentElement {
   readonly for?: Clause
   readonly for_names?: string[]
   readonly body: TemplateElements
+  readonly children?: TemplateElements
   readonly comp_file: string
   readonly comp_loc: FileLocation
-  // TODO children
 }
 
 export type TemplateElement = string | Comment | Clause | TagElement | ComponentElement
@@ -409,14 +409,14 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       attributes.push({name, value})
     }
   }
-
+  const el_body = el.body.length ? el.body.map(convert_chunk) : undefined
   if (component === undefined) {
     return {
       type: 'tag',
       name,
       loc,
       set_attributes: set_attributes.length ? set_attributes : undefined,
-      body: el.body.length ? el.body.map(convert_chunk) : undefined,
+      body: el_body,
       attributes: attributes.length ? attributes : undefined,
       if: _if || undefined,
       for: _for || undefined,
@@ -453,6 +453,7 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       for: _for || undefined,
       for_names: _for_names || undefined,
       body: component.body.map(convert_chunk),
+      children: el_body,
       comp_file: component.file,
       comp_loc: component.loc,
     }

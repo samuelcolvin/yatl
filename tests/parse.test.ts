@@ -72,6 +72,22 @@ const expected_elements: [string, TemplateElements][] = [
     ],
   ],
   [
+    '<template name="ChildrenDefault">children:{{ children }}</template>\n<ChildrenDefault>child.</ChildrenDefault>',
+    [
+      '\n',
+      {
+        type: 'component',
+        name: 'ChildrenDefault',
+        loc: {line: 2, col: 1},
+        props: [],
+        body: ['children:', {type: 'var', symbol: 'children', chain: []}],
+        children: ['child.'],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
+      },
+    ],
+  ],
+  [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
       '\n',
