@@ -1,6 +1,6 @@
 import {SaxesParser, SaxesTagPlain, StartTagForOptions, AttributeEventForOptions} from 'saxes'
 
-import {is_upper_case} from './utils'
+import {is_upper_case, remove_undefined} from './utils'
 import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
 
@@ -458,15 +458,6 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       comp_loc: component.loc,
     }
   }
-}
-
-function remove_undefined<T extends Record<any, any>>(obj: T): T {
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) {
-      delete obj[key]
-    }
-  }
-  return obj
 }
 
 function convert_chunk(chunk: TempChunk): TemplateElement {
