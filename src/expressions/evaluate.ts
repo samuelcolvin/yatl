@@ -1,5 +1,5 @@
-import {shouldnt_happen, is_object, smart_equals, smart_typeof, has_property} from '../utils'
-import type {Clause, Operation, OperatorType, Modified, Var, Func, ChainElement} from './build'
+import {has_property, is_object, shouldnt_happen, smart_equals, smart_typeof, SmartType} from '../utils'
+import type {ChainElement, Clause, Func, Modified, Operation, OperatorType, Var} from './build'
 
 export type Result = string | number | boolean | null | undefined | Date | Result[] | {[key: string]: Result}
 
@@ -131,11 +131,11 @@ export default class Evaluator {
   private async op_add(value: Result, args: Clause[]): Promise<number | Result[] | {[key: string]: Result}> {
     const value_type = smart_typeof(value)
     switch (value_type) {
-      case 'number':
+      case SmartType.Number:
         return await async_reduce(args, this.add_numbers.bind(this), value as number)
-      case 'array':
+      case SmartType.Array:
         return await async_reduce(args, this.add_arrays.bind(this), value as any[])
-      case 'object':
+      case SmartType.Object:
         return await async_reduce(args, this.add_objects.bind(this), value as {[key: string]: Result})
       default:
         throw TypeError(`unable to add ${value_type}s`)
@@ -184,15 +184,15 @@ export default class Evaluator {
   private async op_in(value: Result, args: Clause[]): Promise<boolean> {
     const container = await this.evaluate(args[0])
     const container_type = smart_typeof(container)
-    if (container_type == 'object') {
+    if (container_type == SmartType.Object) {
       if (typeof value != 'string') {
         return false
       } else {
         return has_property(container, value)
       }
-    } else if (container_type == 'array') {
+    } else if (container_type == SmartType.Array) {
       return (container as Result[]).includes(value)
-    } else if (container_type == 'string') {
+    } else if (container_type == SmartType.String) {
       if (typeof value != 'string') {
         return false
       } else {
@@ -228,7 +228,7 @@ export default class Evaluator {
 
   private lookup_value(v: Var, namespace: Record<string, any>, namespace_name: string): any {
     let value = namespace[v.symbol]
-    if (typeof value == 'undefined') {
+    if (value === undefined) {
       throw Error(`"${v.symbol}" not found in ${namespace_name}`)
     }
     const steps: (string | number)[] = []
@@ -247,7 +247,7 @@ export default class Evaluator {
       let key: string | number = c.lookup
       if (c.type == 'symbol') {
         const _key = this.context[c.lookup]
-        if (typeof _key == 'undefined') {
+        if (_key === undefined) {
           throw Error(`lookup "${c.lookup}" not found`)
         } else if (typeof _key != 'string' && typeof _key != 'number') {
           throw Error(`"${c.lookup}" must be a string or number`)

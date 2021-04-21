@@ -6,19 +6,20 @@ export function shouldnt_happen(type: never): never {
 
 export const is_upper_case = (name: string): boolean => name == name.toUpperCase()
 
-type Type =
-  | 'null'
-  | 'undefined'
-  | 'number'
-  | 'boolean'
-  | 'date'
-  | 'regexp'
-  | 'string'
-  | 'array'
-  | 'object'
-  | 'function'
+export enum SmartType {
+  Null = 'null',
+  Undefined = 'undefined',
+  Number = 'number',
+  Boolean = 'boolean',
+  Date = 'date',
+  Regexp = 'regexp',
+  String = 'string',
+  Array = 'array',
+  Object = 'object',
+  Function = 'function',
+}
 
-export const smart_typeof = (obj: any): Type => {
+export const smart_typeof = (obj: any): SmartType => {
   /**
    * Helper to get the type of objects, works even for primitives, see
    * https://stackoverflow.com/questions/30476150/javascript-deep-comparison-recursively-objects-and-properties
@@ -26,7 +27,7 @@ export const smart_typeof = (obj: any): Type => {
   return Object.prototype.toString
     .call(obj)
     .replace(/\[object (.+)]/, '$1')
-    .toLowerCase() as Type
+    .toLowerCase() as SmartType
 }
 
 export const has_property = (obj: any, key: string): boolean => Object.prototype.hasOwnProperty.call(obj, key)
@@ -61,20 +62,20 @@ export function smart_equals(a: Result, b: Result): boolean {
     return false
   }
 
-  if (a_type == 'undefined' || a_type == 'null') {
+  if (a_type == SmartType.Undefined || a_type == SmartType.Null) {
     return a_type == b_type
   }
 
   // If they're Boolean, String or Number objects, check values
-  if (a_type == 'boolean' || a_type == 'string' || a_type == 'number') {
+  if (a_type == SmartType.Boolean || a_type == SmartType.String || a_type == SmartType.Number) {
     return (a as boolean).valueOf() == (b as boolean).valueOf()
   }
 
-  if (a_type == 'date' || a_type == 'regexp' || a_type == 'function') {
+  if (a_type == SmartType.Date || a_type == SmartType.Regexp || a_type == SmartType.Function) {
     return (a as Date).toString() == (b as Date).toString()
   }
 
-  if (a_type == 'object') {
+  if (a_type == SmartType.Object) {
     const a_obj = a as Record<string, Result>
     const b_obj = b as Record<string, Result>
 
@@ -88,7 +89,7 @@ export function smart_equals(a: Result, b: Result): boolean {
       return false
     }
     return Object.entries(a_obj).every(([k, v]) => smart_equals(v, b_obj[k]))
-  } else if (a_type == 'array') {
+  } else if (a_type == SmartType.Array) {
     const a_array = a as Result[]
     const b_array = b as Result[]
     if (a_array.length != b_array.length) {
@@ -98,4 +99,13 @@ export function smart_equals(a: Result, b: Result): boolean {
   } else {
     return false
   }
+}
+
+export function remove_undefined<T extends Record<any, any>>(obj: T): T {
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      delete obj[key]
+    }
+  }
+  return obj
 }

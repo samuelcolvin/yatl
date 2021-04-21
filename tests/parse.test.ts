@@ -1,28 +1,52 @@
-import {load_template, Body, FileLoader} from '../src/parse'
+import {load_template, TemplateElements, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
-const expected_elements: [string, Body][] = [
-  ['<div>hello</div>', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
+const expected_elements: [string, TemplateElements][] = [
+  ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}]],
   [
     '<div>before{{ name }}after</div>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['before', {type: 'var', symbol: 'name', chain: []}, 'after'],
-        attributes: [],
+        body: [
+          {type: 'text', text: 'before'},
+          {type: 'var', symbol: 'name', chain: []},
+          {type: 'text', text: 'after'},
+        ],
       },
     ],
   ],
-  ['   <div>hello</div>', ['  ', {name: 'div', loc: {line: 1, col: 4}, body: ['hell'], attributes: []}]],
+  [
+    '<!DOCTYPE html>\n<div>foobar</div>',
+    [
+      {type: 'doctype', doctype: ' html'},
+      {type: 'text', text: '\n'},
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 2, col: 1},
+        body: [{type: 'text', text: 'foobar'}],
+      },
+    ],
+  ],
+  [
+    '   <div>hello</div>',
+    [
+      {type: 'text', text: '   '},
+      {type: 'tag', name: 'div', loc: {line: 1, col: 4}, body: [{type: 'text', text: 'hello'}]},
+    ],
+  ],
   ['<template name="Testing">foobar</template>', []],
   [
     '<div class:="1 + 2">hello</div>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: ['hell'],
+        body: [{type: 'text', text: 'hello'}],
         attributes: [
           {
             name: 'class',
@@ -44,34 +68,72 @@ const expected_elements: [string, Body][] = [
   [
     '<template name="IntComponent" foo="">foo {{ foo }}</template>\n<IntComponent foo="xxx"/>',
     [
+      {type: 'text', text: '\n'},
       {
+        type: 'component',
         name: 'IntComponent',
         loc: {line: 2, col: 1},
-        body: [],
-        attributes: [{name: 'foo', value: ['xx']}],
-        component: {
-          props: [{name: 'foo'}],
-          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
-          file: 'root.html',
-          loc: {line: 1, col: 1},
-        },
+        props: [{name: 'foo', value: [{type: 'text', text: 'xxx'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
+      },
+    ],
+  ],
+  [
+    '<template name="CompDefault" x="1">foo {{ foo }}</template><CompDefault/>',
+    [
+      {
+        type: 'component',
+        name: 'CompDefault',
+        loc: {line: 1, col: 60},
+        props: [{name: 'x', value: [{type: 'text', text: '1'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
+      },
+    ],
+  ],
+  [
+    '<template name="ChildrenDefault">children:{{ children }}</template>\n<ChildrenDefault>child.</ChildrenDefault>',
+    [
+      {type: 'text', text: '\n'},
+      {
+        type: 'component',
+        name: 'ChildrenDefault',
+        loc: {line: 2, col: 1},
+        props: [],
+        body: [
+          {type: 'text', text: 'children:'},
+          {type: 'var', symbol: 'children', chain: []},
+        ],
+        children: [{type: 'text', text: 'child.'}],
+        comp_file: 'root.html',
+        comp_loc: {line: 1, col: 1},
       },
     ],
   ],
   [
     '<template name="ExtComponent"/>\n<ExtComponent foo="xxx"/>',
     [
+      {type: 'text', text: '\n'},
       {
+        type: 'component',
         name: 'ExtComponent',
         loc: {line: 2, col: 1},
-        body: [],
-        attributes: [{name: 'foo', value: ['xx']}],
-        component: {
-          props: [{name: 'foo'}],
-          body: ['foo ', {type: 'var', symbol: 'foo', chain: []}],
-          file: 'ExtComponent.html',
-          loc: {line: 1, col: 1},
-        },
+        props: [{name: 'foo', value: [{type: 'text', text: 'xxx'}]}],
+        body: [
+          {type: 'text', text: 'foo '},
+          {type: 'var', symbol: 'foo', chain: []},
+        ],
+        comp_file: 'ExtComponent.html',
+        comp_loc: {line: 1, col: 1},
       },
     ],
   ],
@@ -79,20 +141,77 @@ const expected_elements: [string, Body][] = [
     '<div set:x="1" set:y="2"/>',
     [
       {
+        type: 'tag',
         name: 'div',
         loc: {line: 1, col: 1},
-        body: [],
-        attributes: [
-          {name: 'x', value: [{type: 'num', value: 1}], set: true},
-          {name: 'y', value: [{type: 'num', value: 2}], set: true},
+        set_attributes: [
+          {name: 'x', value: [{type: 'num', value: 1}]},
+          {name: 'y', value: [{type: 'num', value: 2}]},
         ],
       },
     ],
   ],
-  ['<div>hello</div><!-- a comment-->', [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}]],
+  [
+    '<div>hello</div><!-- a comment-->',
+    [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}],
+  ],
   [
     '<div>hello</div><!-- keep: a comment-->',
-    [{name: 'div', loc: {line: 1, col: 1}, body: ['hell'], attributes: []}, {comment: ' a comment'}],
+    [
+      {type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]},
+      {type: 'comment', comment: ' a comment'},
+    ],
+  ],
+  [
+    '<div if:="if_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: [{type: 'text', text: 'hello'}],
+        if: {type: 'var', symbol: 'if_clause', chain: []},
+      },
+    ],
+  ],
+  [
+    '<div for:x:="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: [{type: 'text', text: 'hello'}],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x'],
+      },
+    ],
+  ],
+  [
+    '<div for:x="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: [{type: 'text', text: 'hello'}],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x'],
+      },
+    ],
+  ],
+  [
+    '<div for:x:y="for_clause">hello</div>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        body: [{type: 'text', text: 'hello'}],
+        for: {type: 'var', symbol: 'for_clause', chain: []},
+        for_names: ['x', 'y'],
+      },
+    ],
   ],
 ]
 
@@ -117,11 +236,11 @@ describe('load_template', () => {
 
   // test('create-expected_elements', async () => {
   //   const new_expected_elements = []
-  //   for (const [xml,] of expected_elements) {
+  //   for (const [xml] of expected_elements) {
   //     const loader = get_loader(xml)
   //     const ee = await load_template('root.html', loader)
   //     new_expected_elements.push([xml, ee])
   //   }
-  //   console.log('const expected_elements: [string, Body][] = %j', new_expected_elements)
+  //   console.log('const expected_elements: [string, TemplateElements][] = %j', new_expected_elements)
   // })
 })
