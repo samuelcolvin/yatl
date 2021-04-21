@@ -1,29 +1,23 @@
 import type {Context, Functions} from './expressions/evaluate'
 import type {TemplateElement, TagElement, ComponentElement, Text} from './parse'
-import {evaluate_clause_str, evaluate_clause_bool} from './expressions'
+import {evaluate_as_str, evaluate_as_bool, evaluate_as_loop} from './expressions'
 import {Clause} from './expressions/build'
 
 export async function render(template: TemplateElement[], context: Context, functions: Functions): Promise<string> {
-  const r = new Render(template, functions)
-  return await r.render(context)
+  const r = new Renderer(functions)
+  return await r.render(template, context)
 }
 
-export class Render {
-  private readonly template: TemplateElement[]
+export class Renderer {
   private readonly functions: Functions
 
-  constructor(template: TemplateElement[], functions: Functions) {
-    this.template = template
+  constructor(functions: Functions) {
     this.functions = functions
   }
 
-  async render(context: Context): Promise<string> {
-    return await this.render_chunks(this.template, context)
-  }
-
-  private async render_chunks(chunks: TemplateElement[], context: Context): Promise<string> {
+  async render(template: TemplateElement[], context: Context): Promise<string> {
     let s = ''
-    for (const chunk of chunks) {
+    for (const chunk of template) {
       const v = await this.render_chunk(chunk, context)
       if (v) {
         s += v
@@ -44,27 +38,45 @@ export class Render {
       case 'doctype':
         return `<!DOCTYPE${chunk.doctype}>`
       default:
-        return await evaluate_clause_str(chunk, context, this.functions)
+        return await evaluate_as_str(chunk, context, this.functions)
     }
   }
 
   private async render_element(chunk: TagElement | ComponentElement, context: Context): Promise<string | null> {
     const if_ = chunk.if
     if (if_ != undefined) {
-      const v = await evaluate_clause_bool(if_, context, this.functions)
+      const v = await evaluate_as_bool(if_, context, this.functions)
       if (!v) {
         return null
       }
     }
-    const for_ = chunk.for
-    if (for_ != undefined) {
-      throw new Error('TODO')
-    } else {
+    const render = (context: Context) => {
       if (chunk.type == 'tag') {
-        return await this.render_tag(chunk, context)
+        return this.render_tag(chunk, context)
       } else {
-        return await this.render_component(chunk, context)
+        return this.render_component(chunk, context)
       }
+    }
+    const for_ = chunk.for
+    if (for_ == undefined) {
+      return await render(context)
+    } else {
+      const contexts = await evaluate_as_loop(for_, chunk.for_names as string[], context, this.functions)
+      let index = 1
+      let s = ''
+      for (const loop_names_context of contexts) {
+        const loop_context = {
+          index,
+          first: index == 1,
+          last: index == contexts.length,
+        }
+        const v = await render({...context, ...loop_names_context, ...loop_context})
+        if (v) {
+          s += v
+        }
+        index++
+      }
+      return s
     }
   }
 
@@ -78,7 +90,7 @@ export class Render {
     }
 
     if (fragment) {
-      return body ? await this.render_chunks(body, new_context) : null
+      return body ? await this.render(body, new_context) : null
     }
 
     let attrs = ''
@@ -89,7 +101,7 @@ export class Render {
       }
     }
     if (body) {
-      const body_str = await this.render_chunks(body, new_context)
+      const body_str = await this.render(body, new_context)
       return `<${name}${attrs}>${body_str}</${name}>`
     } else {
       return `<${name}${attrs}/>`
@@ -106,9 +118,9 @@ export class Render {
     }
 
     if (children) {
-      new_context.children = await this.render_chunks(children, new_context)
+      new_context.children = await this.render(children, new_context)
     }
-    return await this.render_chunks(body, new_context)
+    return await this.render(body, new_context)
   }
 
   private async evaluate_attr(value: (Text | Clause)[], context: Context): Promise<string> {
@@ -118,7 +130,7 @@ export class Render {
       if (chunk.type == 'text') {
         s += chunk.text
       } else {
-        s += await evaluate_clause_str(chunk, context, this.functions)
+        s += await evaluate_as_str(chunk, context, this.functions)
       }
     }
     return s

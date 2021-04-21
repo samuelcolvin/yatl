@@ -5,9 +5,13 @@ import {Context, Functions} from '../src/expressions/evaluate'
 
 const expected_rendered: [string, string][] = [
   ['<div>hello</div>', '<div>hello</div>'],
-  ['<div>hello {{ foo }}</div>', '<div>hello FOO</div>'],
+  ['  <div>hello {{ foo }}</div>', '  <div>hello FOO</div>'],
   ['<div if:="false">xxx</div>', ''],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
+  [
+    '<div for:item:="an_array">{{ item }}</div>',
+    '<div>first-element</div><div>second-element</div><div>third-element</div>',
+  ],
 ]
 
 function get_loader(xml: string): FileLoader {

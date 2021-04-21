@@ -1,4 +1,4 @@
-import {smart_typeof, SmartType} from '../utils'
+import {has_property, smart_typeof, SmartType} from '../utils'
 import tokenize from './tokenize'
 import build_expression, {Clause} from './build'
 import Evaluator, {Context, Functions, Result} from './evaluate'
@@ -18,7 +18,7 @@ export async function evaluate_string(expression: string, context: Context, func
   return await evaluate_clause(clause, context, functions)
 }
 
-export async function evaluate_clause_str(clause: Clause, context: Context, functions: Functions): Promise<string> {
+export async function evaluate_as_str(clause: Clause, context: Context, functions: Functions): Promise<string> {
   const v = await evaluate_clause(clause, context, functions)
   if (typeof v == 'string') {
     return v
@@ -31,7 +31,7 @@ export async function evaluate_clause_str(clause: Clause, context: Context, func
   }
 }
 
-export async function evaluate_clause_bool(clause: Clause, context: Context, functions: Functions): Promise<boolean> {
+export async function evaluate_as_bool(clause: Clause, context: Context, functions: Functions): Promise<boolean> {
   const v = await evaluate_clause(clause, context, functions)
   const t = smart_typeof(v)
   if (t == SmartType.Array) {
@@ -40,5 +40,56 @@ export async function evaluate_clause_bool(clause: Clause, context: Context, fun
     return Object.keys(v as Record<any, any>).length > 0
   } else {
     return Boolean(v)
+  }
+}
+
+function map_items(item: any, names: string[]) {
+  const item_type = smart_typeof(item)
+  if (item_type == SmartType.Array) {
+    if (item_type.length != names.length) {
+      throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
+    }
+    return names.map((name, i) => ({[name]: item[i]}))
+  } else if (item_type == SmartType.Object) {
+    const keys = Object.keys(item)
+
+    if (keys.length != names.length) {
+      throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
+    }
+    return names.map(name => ({[name]: item[name]}))
+  } else {
+    throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
+  }
+}
+
+export async function evaluate_as_loop(
+  clause: Clause,
+  names: string[],
+  context: Context,
+  functions: Functions,
+): Promise<any[]> {
+  const v = await evaluate_clause(clause, context, functions)
+  const t = smart_typeof(v)
+  if (t == SmartType.Array) {
+    const arr = v as any[]
+    if (names.length == 1) {
+      const name = names[0]
+      return arr.map(item => ({[name]: item}))
+    } else {
+      return arr.map(item => map_items(item, names))
+    }
+  } else if (t == SmartType.Object) {
+    const obj = v as Record<any, any>
+    const [key_name, value_name] = names
+    switch (names.length) {
+      case 1:
+        return Object.values(obj).map(item => ({[key_name]: item}))
+      case 2:
+        return Object.entries(obj).map(([key, value]) => ({[key_name]: key, [value_name]: value}))
+      default:
+        throw new Error(`objects can only be mapped to one or two names, not ${names.length} names`)
+    }
+  } else {
+    throw new Error(`${t}s can't be used in for loop expressions`)
   }
 }
