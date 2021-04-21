@@ -44,21 +44,19 @@ export async function evaluate_as_bool(clause: Clause, context: Context, functio
 }
 
 function map_items(item: any, names: string[]) {
-  const item_type = smart_typeof(item)
-  if (item_type == SmartType.Array) {
-    if (item_type.length != names.length) {
-      throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
-    }
-    return names.map((name, i) => ({[name]: item[i]}))
-  } else if (item_type == SmartType.Object) {
-    const keys = Object.keys(item)
-
-    if (keys.length != names.length) {
-      throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
-    }
-    return names.map(name => ({[name]: item[name]}))
-  } else {
-    throw new Error(`Loop variable names ${JSON.stringify(names)} can't be mapped to ${JSON.stringify(item)}`)
+  switch (smart_typeof(item)) {
+    case SmartType.Array:
+      if (item.length != names.length) {
+        throw new Error(`Loop variable names ${JSON.stringify(names)} cannot be mapped to ${JSON.stringify(item)}`)
+      }
+      return Object.fromEntries(names.map((name, i) => [name, item[i]]))
+    case SmartType.Object:
+      if (Object.keys(item).length != names.length) {
+        throw new Error(`Loop variable names ${JSON.stringify(names)} cannot be mapped to ${JSON.stringify(item)}`)
+      }
+      return Object.fromEntries(names.map(name => [name, item[name]]))
+    default:
+      throw new Error(`Loop variable names ${JSON.stringify(names)} cannot be mapped to ${JSON.stringify(item)}`)
   }
 }
 

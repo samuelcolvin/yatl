@@ -7,6 +7,14 @@ const expected_rendered: [string, string][] = [
   ['<div>hello</div>', '<div>hello</div>'],
   ['  <div>hello {{ foo }}</div>', '  <div>hello FOO</div>'],
   ['<div if:="false">xxx</div>', ''],
+  ['<text>hello</text>', 'hello'],
+  ['<div id="egg" class:="foo">xxx</div>', '<div id="egg" class="FOO">xxx</div>'],
+  ['<input id="egg" class:="double_it(2)"/>', '<input id="egg" class="4"/>'],
+  // ['<!doctype html>\n<html>foobar</html>', '<!DOCTYPE html>\n<html>foobar</html>'],
+  [
+    '<!-- this is a hidden comment -->\n\n<!-- keep: this is a kept comment -->',
+    '\n\n<!-- this is a kept comment -->',
+  ],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
   [
     '<div for:thing:="an_array" for_join="">{{ thing }}</div>',
@@ -34,6 +42,9 @@ const expected_rendered: [string, string][] = [
       </div>
     `,
   ],
+  ['<span for:x:y="array_array" for_join="">{{ x }}.{{ y }}</span>', '<span>1.2</span><span>10.20</span>'],
+  ['<span for:x:y="obj_array" for_join="">{{ x }}.{{ y }}</span>', '<span>3.4</span><span>5.6</span>'],
+  ['<fragment for:x="simple_object" for_join=""> {{ x }}</fragment>', ' apple banana carrot'],
   [
     `
 <template name="MyComponent" foo="" bar="default-bar">
@@ -64,6 +75,14 @@ function get_loader(xml: string): FileLoader {
 const test_context: Context = {
   foo: 'FOO',
   an_array: ['first-element', 'second-element', 'third-element'],
+  array_array: [
+    [1, 2],
+    [10, 20],
+  ],
+  obj_array: [
+    {x: 3, y: 4},
+    {x: 5, y: 6},
+  ],
   simple_object: {
     a: 'apple',
     b: 'banana',
@@ -73,7 +92,7 @@ const test_context: Context = {
 }
 const test_functions: Functions = {
   pie: async () => 'apple pie',
-  one_argument: async (x: number) => x * 2,
+  double_it: async (x: number) => x * 2,
 }
 
 describe('render', () => {
