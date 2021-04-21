@@ -19,6 +19,7 @@ export interface TagElement {
   readonly if?: Clause
   readonly for?: Clause
   readonly for_names?: string[]
+  readonly for_join?: (Text | Clause)[]
 }
 
 interface Prop {
@@ -34,6 +35,7 @@ export interface ComponentElement {
   readonly if?: Clause
   readonly for?: Clause
   readonly for_names?: string[]
+  readonly for_join?: (Text | Clause)[]
   readonly body: TemplateElement[]
   readonly children?: TemplateElement[]
   readonly comp_file: string
@@ -184,9 +186,14 @@ class FileParser {
       } else if (name.startsWith('if:')) {
         this.attributes.push({name: 'if', value})
       } else if (name.startsWith('for:')) {
-        const for_names = name.substr(4).replace(/:+$/, '').split(':')
-        if (!for_names.every(n => n.length > 0)) {
-          throw new Error(`Empty names are not allowed in for expressions, got ${JSON.stringify(for_names)}`)
+        let for_names: string[]
+        if (name == 'for:') {
+          for_names = ['item']
+        } else {
+          for_names = name.substr(4).replace(/:+$/, '').split(':')
+          if (!for_names.every(n => n.length > 0)) {
+            throw new Error(`Empty names are not allowed in "for" expressions, got ${JSON.stringify(for_names)}`)
+          }
         }
         this.attributes.push({name: 'set', for_names, value})
       } else {
@@ -374,9 +381,10 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
 
   const set_attributes: Attribute[] = []
   const attributes: Attribute[] = []
-  let _if: Clause | null = null
-  let _for: Clause | null = null
-  let _for_names: string[] | null = null
+  let _if: Clause | undefined
+  let _for: Clause | undefined
+  let for_names: string[] | undefined
+  let for_join: (Text | Clause)[] | undefined
   for (const attr of el.attributes) {
     const {value} = attr
     const attr_name = attr.name
@@ -384,7 +392,9 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       set_attributes.push({name: attr.set_name as string, value})
     } else if ('for_names' in attr) {
       _for = one_clause(value, 'for')
-      _for_names = attr.for_names as string[]
+      for_names = attr.for_names as string[]
+    } else if (attr_name == 'for_join') {
+      for_join = value
     } else if (attr_name == 'if') {
       _if = one_clause(value, 'if')
     } else {
@@ -405,9 +415,10 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
       set_attributes: set_attributes.length ? set_attributes : undefined,
       body: el_body,
       attributes: attributes.length ? attributes : undefined,
-      if: _if || undefined,
-      for: _for || undefined,
-      for_names: _for_names || undefined,
+      if: _if,
+      for: _for,
+      for_names,
+      for_join,
     }
   } else {
     if ('path' in component) {
@@ -435,9 +446,10 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
           }
         },
       ),
-      if: _if || undefined,
-      for: _for || undefined,
-      for_names: _for_names || undefined,
+      if: _if,
+      for: _for,
+      for_names,
+      for_join,
       body: component.body.map(convert_chunk),
       children: el_body,
       comp_file: component.file,
@@ -448,11 +460,11 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
 
 function one_clause(value: (Text | Clause)[], attr: string): Clause {
   if (value.length != 1) {
-    throw new Error(`One Clause required as value for ${attr} attributes`)
+    throw new Error(`One Clause is required as the value for ${attr} attributes`)
   }
   const first = value[0]
   if (first.type == 'text') {
-    throw new Error(`text values are not valid as ${attr} values`)
+    throw new Error(`Text values are not valid as ${attr} values`)
   } else {
     return first
   }

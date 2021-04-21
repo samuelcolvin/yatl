@@ -9,8 +9,30 @@ const expected_rendered: [string, string][] = [
   ['<div if:="false">xxx</div>', ''],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
   [
-    '<div for:item:="an_array">{{ item }}</div>',
+    '<div for:thing:="an_array" for_join="">{{ thing }}</div>',
     '<div>first-element</div><div>second-element</div><div>third-element</div>',
+  ],
+  [
+    '<div for:="an_array" for_join=".">{{ item }}</div>',
+    '<div>first-element</div>.<div>second-element</div>.<div>third-element</div>',
+  ],
+  [
+    `
+      <div for:key:value="simple_object">
+        {{ loop.index }} {{ key }} {{ value }}
+      </div>
+    `,
+    `
+      <div>
+        1 a apple
+      </div>
+      <div>
+        2 b banana
+      </div>
+      <div>
+        3 c carrot
+      </div>
+    `,
   ],
 ]
 
@@ -25,14 +47,12 @@ function get_loader(xml: string): FileLoader {
 }
 const test_context: Context = {
   foo: 'FOO',
-  a: {
-    b: 'b-value',
-    c: {
-      d: 'd-value',
-      e: {f: 'f-value'},
-    },
-  },
   an_array: ['first-element', 'second-element', 'third-element'],
+  simple_object: {
+    a: 'apple',
+    b: 'banana',
+    c: 'carrot',
+  },
   one: 1,
 }
 const test_functions: Functions = {
@@ -41,11 +61,11 @@ const test_functions: Functions = {
 }
 
 describe('render', () => {
-  each(expected_rendered).test('expected_rendered %j -> %j', async (template, expected_output) => {
+  each(expected_rendered).test('expected_rendered %s', async (template, expected_output) => {
     const loader = get_loader(template)
     const template_elements = await load_template('root.html', loader)
     const output = await render(template_elements, test_context, test_functions)
-    // console.log(JSON.stringify(await render('root.html', loader), null, 2))
+    // console.log('output:', output)
     expect(output).toEqual(expected_output)
   })
 

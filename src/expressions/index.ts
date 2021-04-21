@@ -1,4 +1,4 @@
-import {has_property, smart_typeof, SmartType} from '../utils'
+import {smart_typeof, SmartType} from '../utils'
 import tokenize from './tokenize'
 import build_expression, {Clause} from './build'
 import Evaluator, {Context, Functions, Result} from './evaluate'

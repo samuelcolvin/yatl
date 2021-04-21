@@ -63,20 +63,24 @@ export class Renderer {
     } else {
       const contexts = await evaluate_as_loop(for_, chunk.for_names as string[], context, this.functions)
       let index = 1
-      let s = ''
+      const parts: string[] = []
       for (const loop_names_context of contexts) {
-        const loop_context = {
+        const loop = {
           index,
           first: index == 1,
           last: index == contexts.length,
         }
-        const v = await render({...context, ...loop_names_context, ...loop_context})
+        const v = await render({...context, ...loop_names_context, loop})
         if (v) {
-          s += v
+          parts.push(v)
         }
         index++
       }
-      return s
+      let join_with = '\n' + ' '.repeat(chunk.loc.col - 1)
+      if (chunk.for_join) {
+        join_with = await this.evaluate_attr_value(chunk.for_join, context)
+      }
+      return parts.join(join_with)
     }
   }
 
@@ -85,7 +89,7 @@ export class Renderer {
     const {name, body, set_attributes, attributes, fragment} = tag
     if (set_attributes) {
       for (const {name, value} of set_attributes) {
-        new_context[name] = await this.evaluate_attr(value, context)
+        new_context[name] = await this.evaluate_attr_value(value, context)
       }
     }
 
@@ -96,7 +100,7 @@ export class Renderer {
     let attrs = ''
     if (attributes) {
       for (const {name, value} of attributes) {
-        const v = await this.evaluate_attr(value, context)
+        const v = await this.evaluate_attr_value(value, context)
         attrs += ` ${name}="${v}"`
       }
     }
@@ -113,7 +117,7 @@ export class Renderer {
     const {body, props, children} = comp
     if (props) {
       for (const {name, value} of props) {
-        new_context[name] = await this.evaluate_attr(value, context)
+        new_context[name] = await this.evaluate_attr_value(value, context)
       }
     }
 
@@ -123,7 +127,7 @@ export class Renderer {
     return await this.render(body, new_context)
   }
 
-  private async evaluate_attr(value: (Text | Clause)[], context: Context): Promise<string> {
+  private async evaluate_attr_value(value: (Text | Clause)[], context: Context): Promise<string> {
     // TODO escaping
     let s = ''
     for (const chunk of value) {
