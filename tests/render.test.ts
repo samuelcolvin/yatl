@@ -34,6 +34,22 @@ const expected_rendered: [string, string][] = [
       </div>
     `,
   ],
+  [
+    `
+<template name="MyComponent" foo="" bar="default-bar">
+  <label>foo</label>: <span>{{ foo }}</span>
+  <label>bar</label>: <span>{{ bar }}</span>
+</template>
+<MyComponent foo="FOO"/>
+    `,
+    `
+
+
+  <label>foo</label>: <span>FOO</span>
+  <label>bar</label>: <span>default-bar</span>
+
+    `,
+  ],
 ]
 
 function get_loader(xml: string): FileLoader {
@@ -66,6 +82,7 @@ describe('render', () => {
     const template_elements = await load_template('root.html', loader)
     const output = await render(template_elements, test_context, test_functions)
     // console.log('output:', output)
+    // console.log('output: %j', output)
     expect(output).toEqual(expected_output)
   })
 
