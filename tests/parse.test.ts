@@ -1,7 +1,7 @@
-import {load_template, TemplateElements, FileLoader} from '../src/parse'
+import {load_template, TemplateElement, FileLoader} from '../src/parse'
 import each from 'jest-each'
 
-const expected_elements: [string, TemplateElements][] = [
+const expected_elements: [string, TemplateElement[]][] = [
   ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}]],
   [
     '<div>before{{ name }}after</div>',
@@ -241,6 +241,6 @@ describe('load_template', () => {
   //     const ee = await load_template('root.html', loader)
   //     new_expected_elements.push([xml, ee])
   //   }
-  //   console.log('const expected_elements: [string, TemplateElements][] = %j', new_expected_elements)
+  //   console.log('const expected_elements: [string, TemplateElement[]][] = %j', new_expected_elements)
   // })
 })

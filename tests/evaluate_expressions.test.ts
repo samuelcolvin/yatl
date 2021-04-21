@@ -75,7 +75,7 @@ const evaluate_expect: [string, any][] = [
   ['"other" in an_array', false],
   ['-4 + 1', -3],
 ]
-const text_context: Context = {
+const test_context: Context = {
   a: {
     b: 'b-value',
     c: {
@@ -114,6 +114,6 @@ describe('evaluate', () => {
     expect(await evaluate_string('x', {x: 'foobar'}, {})).toEqual('foobar')
   })
   each(evaluate_expect).test('evaluate %s -> %j', async (expression, expected_result) => {
-    expect(await evaluate_string(expression, text_context, test_functions)).toStrictEqual(expected_result)
+    expect(await evaluate_string(expression, test_context, test_functions)).toStrictEqual(expected_result)
   })
 })

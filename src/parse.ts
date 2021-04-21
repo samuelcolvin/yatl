@@ -3,22 +3,62 @@ import {is_upper_case, remove_undefined} from './utils'
 import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
 
-interface FileLocation {
-  readonly line: number
-  readonly col: number
+interface Attribute {
+  readonly name: string
+  readonly value: (Text | Clause)[]
 }
 
-interface DocType {
+export interface TagElement {
+  readonly type: 'tag'
+  readonly name: string
+  readonly loc: FileLocation
+  readonly fragment?: boolean
+  readonly set_attributes?: Attribute[]
+  readonly attributes?: Attribute[]
+  readonly body?: TemplateElement[]
+  readonly if?: Clause
+  readonly for?: Clause
+  readonly for_names?: string[]
+}
+
+interface Prop {
+  readonly name: string
+  readonly value: (Text | Clause)[]
+}
+
+export interface ComponentElement {
+  readonly type: 'component'
+  readonly name: string
+  readonly loc: FileLocation
+  readonly props: Prop[]
+  readonly if?: Clause
+  readonly for?: Clause
+  readonly for_names?: string[]
+  readonly body: TemplateElement[]
+  readonly children?: TemplateElement[]
+  readonly comp_file: string
+  readonly comp_loc: FileLocation
+}
+
+export type TemplateElement = DocType | Text | Comment | Clause | TagElement | ComponentElement
+
+export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElement[]> {
+  const loader = new TemplateLoader(file_path, file_loader)
+  const chunks = await loader.load()
+  return chunks.map(convert_chunk)
+}
+
+export interface DocType {
   readonly type: 'doctype'
   readonly doctype: string
 }
 
-interface Text {
+export interface Text {
   readonly type: 'text'
   readonly text: string
 }
 
-interface Comment {
+export interface Comment {
   readonly type: 'comment'
   readonly comment: string
 }
@@ -31,6 +71,11 @@ interface PropDef {
 interface ComponentReference {
   readonly path: string | null
   used: boolean
+}
+
+interface FileLocation {
+  readonly line: number
+  readonly col: number
 }
 
 export interface ComponentDefinition {
@@ -323,82 +368,39 @@ class TemplateLoader {
   }
 }
 
-interface Attribute {
-  readonly name: string
-  readonly value: (Text | Clause)[]
-}
-
-interface TagElement {
-  readonly type: 'tag'
-  readonly name: string
-  readonly loc: FileLocation
-  readonly set_attributes?: Attribute[]
-  readonly attributes?: Attribute[]
-  readonly body?: TemplateElements
-  readonly if?: Clause
-  readonly for?: Clause
-  readonly for_names?: string[]
-}
-
-interface Prop {
-  readonly name: string
-  readonly value: (Text | Clause)[]
-}
-
-interface ComponentElement {
-  readonly type: 'component'
-  readonly name: string
-  readonly loc: FileLocation
-  readonly props: Prop[]
-  readonly if?: Clause
-  readonly for?: Clause
-  readonly for_names?: string[]
-  readonly body: TemplateElements
-  readonly children?: TemplateElements
-  readonly comp_file: string
-  readonly comp_loc: FileLocation
-}
-
-export type TemplateElement = DocType | Text | Comment | Clause | TagElement | ComponentElement
-export type TemplateElements = TemplateElement[]
-
-function one_clause(value: (Text | Clause)[], attr: string): Clause {
-  if (value.length != 1) {
-    throw new Error(`One Clause required as value for ${attr} attributes`)
-  }
-  const first = value[0]
-  if (first.type == 'text') {
-    throw new Error(`text values are not valid as ${attr} values`)
-  } else {
-    return first
-  }
-}
-
 function convert_element(el: TempElement): TagElement | ComponentElement {
   const {name, loc, component} = el
+  const fragment = name == 'text' || name == 'fragment'
+
   const set_attributes: Attribute[] = []
   const attributes: Attribute[] = []
   let _if: Clause | null = null
   let _for: Clause | null = null
   let _for_names: string[] | null = null
   for (const attr of el.attributes) {
-    const {name, value} = attr
+    const {value} = attr
+    const attr_name = attr.name
     if ('set_name' in attr) {
       set_attributes.push({name: attr.set_name as string, value})
     } else if ('for_names' in attr) {
       _for = one_clause(value, 'for')
       _for_names = attr.for_names as string[]
-    } else if (name == 'if') {
+    } else if (attr_name == 'if') {
       _if = one_clause(value, 'if')
     } else {
-      attributes.push({name, value})
+      if (fragment) {
+        throw new Error(`Standard attributes (like "${attr_name}") make no sense with ${name} elements`)
+      }
+      attributes.push({name: attr_name, value})
     }
   }
+
   const el_body = el.body.length ? el.body.map(convert_chunk) : undefined
   if (component === undefined) {
     return {
       type: 'tag',
       name,
+      fragment: fragment || undefined,
       loc,
       set_attributes: set_attributes.length ? set_attributes : undefined,
       body: el_body,
@@ -444,16 +446,22 @@ function convert_element(el: TempElement): TagElement | ComponentElement {
   }
 }
 
+function one_clause(value: (Text | Clause)[], attr: string): Clause {
+  if (value.length != 1) {
+    throw new Error(`One Clause required as value for ${attr} attributes`)
+  }
+  const first = value[0]
+  if (first.type == 'text') {
+    throw new Error(`text values are not valid as ${attr} values`)
+  } else {
+    return first
+  }
+}
+
 function convert_chunk(chunk: TempChunk): TemplateElement {
   if (chunk.type == 'temp_element') {
     return remove_undefined(convert_element(chunk))
   } else {
     return chunk
   }
-}
-
-export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElements> {
-  const loader = new TemplateLoader(file_path, file_loader)
-  const chunks = await loader.load()
-  return chunks.map(convert_chunk)
 }
