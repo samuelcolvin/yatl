@@ -1,6 +1,6 @@
 /.idea/
 /coverage/
-/lib/
+/dist/
 /node_modules/
 /scratch/
 /TODO.md
