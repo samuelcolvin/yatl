@@ -1,7 +1,5 @@
-import {load_template, FileLoader} from '../src/parse'
-import {render} from '../src/render'
+import {render_string, Context, Functions} from '../src'
 import each from 'jest-each'
-import {Context, Functions} from '../src/expressions/evaluate'
 
 const expected_rendered: [string, string][] = [
   ['<div>hello</div>', '<div>hello</div>'],
@@ -63,15 +61,6 @@ const expected_rendered: [string, string][] = [
   ],
 ]
 
-function get_loader(xml: string): FileLoader {
-  return async (path: string) => {
-    if (path == 'root.html') {
-      return xml
-    } else {
-      throw Error(`Unknown template "${path}"`)
-    }
-  }
-}
 const test_context: Context = {
   foo: 'FOO',
   an_array: ['first-element', 'second-element', 'third-element'],
@@ -97,9 +86,7 @@ const test_functions: Functions = {
 
 describe('render', () => {
   each(expected_rendered).test('expected_rendered %s', async (template, expected_output) => {
-    const loader = get_loader(template)
-    const template_elements = await load_template('root.html', loader)
-    const output = await render(template_elements, test_context, test_functions)
+    const output = await render_string(template, test_context, test_functions)
     // console.log('output:', output)
     // console.log('output: %j', output)
     expect(output).toEqual(expected_output)
@@ -108,9 +95,7 @@ describe('render', () => {
   // test('create-expected_rendered', async () => {
   //   const new_expected_rendered = []
   //   for (const [template] of expected_rendered) {
-  //     const loader = get_loader(template)
-  //     const template_elements = await load_template('root.html', loader)
-  //     const output = await render(template_elements, test_context, test_functions)
+  //     const output = await render_string(template, test_context, test_functions)
   //     new_expected_rendered.push([template, output])
   //   }
   //   console.log('const expected_rendered: [string, string][] = %j', new_expected_rendered)

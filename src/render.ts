@@ -3,7 +3,11 @@ import type {TemplateElement, TagElement, ComponentElement, Text} from './parse'
 import {evaluate_as_str, evaluate_as_bool, evaluate_as_loop} from './expressions'
 import {Clause} from './expressions/build'
 
-export async function render(template: TemplateElement[], context: Context, functions: Functions): Promise<string> {
+export async function render_template(
+  template: TemplateElement[],
+  context: Context,
+  functions: Functions,
+): Promise<string> {
   const r = new Renderer(functions)
   return await r.render(template, context)
 }

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "outDir": "./lib",
-    "module": "es2015",
+    "module": "commonjs",
     "target": "esnext",
     "lib": ["esnext", "webworker"],
     "alwaysStrict": true,
@@ -10,6 +10,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "esModuleInterop": true,
+    "declaration": true,
     "types": ["@types/esprima", "@types/jest"]
   },
   "include": ["src"],

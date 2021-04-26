@@ -1,8 +1,9 @@
 {
-  "name": "yatl",
+  "name": "edgerender-yatl",
   "version": "0.0.1",
   "description": "Yet Another Template Language",
   "main": "index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "lib/**/*"
   ],
