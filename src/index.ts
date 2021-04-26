@@ -8,7 +8,7 @@ async function render_string(
   functions: Functions,
   file_loader?: FileLoader,
 ): Promise<string> {
-  const root_path_name = '__root__.html'
+  const root_path_name = 'template_string'
 
   const _file_loader = async (path: string) => {
     if (path == root_path_name) {

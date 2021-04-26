@@ -11,7 +11,7 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "declaration": true,
-    "types": ["@types/jest"]
+    "types": ["@types/jest", "@types/node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

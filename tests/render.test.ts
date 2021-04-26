@@ -8,7 +8,7 @@ const expected_rendered: [string, string][] = [
   ['<text>hello</text>', 'hello'],
   ['<div id="egg" class:="foo">xxx</div>', '<div id="egg" class="FOO">xxx</div>'],
   ['<input id="egg" class:="double_it(2)"/>', '<input id="egg" class="4"/>'],
-  // ['<!doctype html>\n<html>foobar</html>', '<!DOCTYPE html>\n<html>foobar</html>'],
+  ['<!doctype html>\n<html>lower doctype</html>', '<!DOCTYPE html>\n<html>lower doctype</html>'],
   [
     '<!-- this is a hidden comment -->\n\n<!-- keep: this is a kept comment -->',
     '\n\n<!-- this is a kept comment -->',
@@ -58,6 +58,31 @@ const expected_rendered: [string, string][] = [
   <label>bar</label>: <span>default-bar</span>
 
     `,
+  ],
+  [
+    `
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8"/>
+    <title>TITLE</title>
+  </head>
+  <body>
+    <h1>hello</h1>
+  </body>
+</html>
+`,
+    `<!DOCTYPE html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8"/>
+    <title>TITLE</title>
+  </head>
+  <body>
+    <h1>hello</h1>
+  </body>
+</html>
+`,
   ],
 ]
 

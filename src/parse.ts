@@ -120,6 +120,7 @@ class FileParser {
   private is_component = false
   private attributes: AttributeDef[] = []
   private props: PropDef[] = []
+  private errors: string[] = []
 
   constructor(file_name: string, xml: string) {
     this.file_name = file_name
@@ -133,7 +134,12 @@ class FileParser {
     // we have to choose whether to use fragment mode based on whether the string starts with a doctype, because:
     // - doctype declarations are illegal if fragment is true
     // - having more than one root element is illegal if fragments is false
-    const fragment = !/^\s*<!doctype/i.test(xml)
+    let fragment = true
+    xml = xml.replace(/^\s*<!doctype/i, () => {
+      fragment = false
+      return '<!DOCTYPE'
+    })
+    // TODO remove fileName here and set trackPosition False, then add them manually to errors
     this.parser = new SaxesParser({fileName: file_name, fragment})
     this.parser.on('error', this.on_error.bind(this))
     this.parser.on('opentagstart', this.on_opentagstart.bind(this))
@@ -145,10 +151,14 @@ class FileParser {
     this.parser.on('comment', this.on_comment.bind(this))
 
     this.parser.write(xml).close()
+    if (this.errors.length) {
+      throw new Error(this.errors.join('\n'))
+    }
   }
 
   private on_error(e: Error): void {
-    console.error('ERROR:', e)
+    console.warn('XML error:', e)
+    this.errors.push(e.message)
   }
 
   private on_opentagstart(tag: StartTagForOptions<any>): void {
