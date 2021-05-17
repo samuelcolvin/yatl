@@ -10,8 +10,8 @@ const expected_rendered: [string, string][] = [
   ['<input id="egg" class:="double_it(2)"/>', '<input id="egg" class="4"/>'],
   ['<!doctype html>\n<html>lower doctype</html>', '<!DOCTYPE html>\n<html>lower doctype</html>'],
   [
-    '<!-- this is a hidden comment -->\n\n<!-- keep: this is a kept comment -->',
-    '\n\n<!-- this is a kept comment -->',
+    '<!-- this is a hidden comment -->\n\n<!-- and another -->',
+    '\n\n',
   ],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
   [

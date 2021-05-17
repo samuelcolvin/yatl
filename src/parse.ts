@@ -1,4 +1,12 @@
-import {SaxesParser, SaxesTagPlain, StartTagForOptions, AttributeEventForOptions} from 'saxes'
+import {
+  Attribute as SaxAttribute,
+  Detail as SaxDetail,
+  Position,
+  SaxEventType as SaxET,
+  SAXParser,
+  Tag as SaxTag,
+  Text as SaxText,
+} from 'sax-wasm'
 import {is_upper_case, remove_undefined} from './utils'
 import type {Clause} from './expressions/build'
 import {build_clause} from './expressions'
@@ -42,12 +50,78 @@ export interface ComponentElement {
   readonly comp_loc: FileLocation
 }
 
-export type TemplateElement = DocType | Text | Comment | Clause | TagElement | ComponentElement
+export type TemplateElement = DocType | Text | Clause | TagElement | ComponentElement
+export type FileLoader = (path: string) => Promise<Uint8Array>
+export type PrepareParserWasm = (parser: SAXParser) => Promise<void>
 
-export async function load_template(file_path: string, file_loader: FileLoader): Promise<TemplateElement[]> {
+export async function load_template(
+  file_path: string,
+  file_loader: FileLoader,
+  prepare_parser_wasm: PrepareParserWasm,
+): Promise<TemplateElement[]> {
   const loader = new TemplateLoader(file_path, file_loader)
-  const chunks = await loader.load()
+  const chunks = await loader.load(prepare_parser_wasm)
   return chunks.map(convert_chunk)
+}
+
+class TemplateLoader {
+  private readonly sax_parser: SAXParser
+  base_file_path: string
+  file_loader: FileLoader
+
+  constructor(file_path: string, file_loader: FileLoader) {
+    this.base_file_path = file_path
+    this.file_loader = file_loader
+    const options = {highWaterMark: 32 * 1024} // 32k chunks
+    const events = SaxET.Attribute | SaxET.CloseTag | SaxET.OpenTag | SaxET.Text | SaxET.Doctype
+    this.sax_parser = new SAXParser(events, options)
+  }
+
+  async load(prepare_parser_wasm: PrepareParserWasm): Promise<TempChunk[]> {
+    await prepare_parser_wasm(this.sax_parser)
+    const parser = await this.parse_file(this.base_file_path)
+    return parser.current.body
+  }
+
+  private async parse_file(file_path: string): Promise<FileParser> {
+    const file_parser = new FileParser(file_path)
+    this.sax_parser.eventHandler = file_parser.handler
+    const xml = await this.file_loader(file_path)
+    this.sax_parser.write(xml)
+    this.sax_parser.end()
+    await this.load_external_components(file_parser.components)
+    return file_parser
+  }
+
+  private async load_external_components(components: FileComponents): Promise<void> {
+    const req_components = Object.entries(components).filter(([, c]) => 'used' in c && c.used)
+    const req_files: {[path: string]: Set<string>} = {}
+    for (const [name, component] of req_components) {
+      const path = (component as ComponentReference).path || `${name}.html`
+      if (path in req_files) {
+        req_files[path].add(name)
+      } else {
+        req_files[path] = new Set([name])
+      }
+    }
+    const imported_components: FileComponents[] = await Promise.all(
+      Object.entries(req_files).map(pc => this.load_file_components(...pc)),
+    )
+    for (const new_file_components of imported_components) {
+      for (const [name, component] of Object.entries(new_file_components)) {
+        // modify the component in place to convert it from a ComponentReference to as ComponentDefinition
+        const new_comp: any = Object.assign(components[name], component)
+        delete new_comp.path
+        delete new_comp.used
+      }
+    }
+  }
+
+  private async load_file_components(file_path: string, components: Set<string>): Promise<FileComponents> {
+    const parser = await this.parse_file(file_path)
+    // TODO check all components are defined here and raise an error if not
+    return Object.fromEntries(Object.entries(parser.components).filter(([k]) => components.has(k)))
+  }
 }
 
 export interface DocType {
@@ -58,11 +132,6 @@ export interface DocType {
 export interface Text {
   readonly type: 'text'
   readonly text: string
-}
-
-export interface Comment {
-  readonly type: 'comment'
-  readonly comment: string
 }
 
 interface PropDef {
@@ -103,26 +172,19 @@ interface TempElement {
   component?: ComponentDefinition | ComponentReference
 }
 
-export type TempChunk = DocType | Text | Comment | Clause | TempElement
+export type TempChunk = DocType | Text | Clause | TempElement
 
 type FileComponents = {[key: string]: ComponentDefinition | ComponentReference}
 
-const keep_comment_regex = /^(\s*)keep:\s*/i
 const illegal_names = new Set(['set', 'for', 'if'])
 
 class FileParser {
-  private readonly parser: SaxesParser
   private readonly file_name: string
   private parents: (TempElement | ComponentDefinition)[] = []
   current: TempElement | ComponentDefinition
   readonly components: FileComponents = {}
-  private tag_col = 0
-  private is_component = false
-  private attributes: AttributeDef[] = []
-  private props: PropDef[] = []
-  private errors: string[] = []
 
-  constructor(file_name: string, xml: string) {
+  constructor(file_name: string) {
     this.file_name = file_name
     this.current = {
       type: 'temp_element',
@@ -131,118 +193,41 @@ class FileParser {
       loc: {line: 1, col: 1},
       body: [],
     }
-    // we have to choose whether to use fragment mode based on whether the string starts with a doctype, because:
-    // - doctype declarations are illegal if fragment is true
-    // - having more than one root element is illegal if fragments is false
-    let fragment = true
-    xml = xml.replace(/^\s*<!doctype/i, () => {
-      fragment = false
-      return '<!DOCTYPE'
-    })
-    // TODO remove fileName here and set trackPosition False, then add them manually to errors
-    this.parser = new SaxesParser({fileName: file_name, fragment})
-    this.parser.on('error', this.on_error.bind(this))
-    this.parser.on('opentagstart', this.on_opentagstart.bind(this))
-    this.parser.on('attribute', this.on_attribute.bind(this))
-    this.parser.on('opentag', this.on_opentag.bind(this))
-    this.parser.on('closetag', this.on_closetag.bind(this))
-    this.parser.on('doctype', this.on_doctype.bind(this))
-    this.parser.on('text', this.on_text.bind(this))
-    this.parser.on('comment', this.on_comment.bind(this))
-
-    this.parser.write(xml).close()
-    if (this.errors.length) {
-      throw new Error(this.errors.join('\n'))
-    }
+    this.handler = this.handler.bind(this)
   }
 
-  private on_error(e: Error): void {
-    console.warn('XML error:', e)
-    this.errors.push(e.message)
-  }
-
-  private on_opentagstart(tag: StartTagForOptions<any>): void {
-    this.tag_col = this.parser.column - tag.name.length - 1
-    this.is_component = tag.name == 'template'
-  }
-
-  private on_attribute(attr: AttributeEventForOptions<any>) {
-    const {name} = attr
-    const raw_value = attr.value
-    if (this.is_component) {
-      if (name != 'name' && name != 'id' && name != 'path') {
-        // TODO allow optional empty string via `foobar:optional=""`, prevent names ending with :
-        if (illegal_names.has(name)) {
-          throw new Error(`"${name}" is not allowed as a component property name`)
-        }
-        if (raw_value == '') {
-          this.props.push({name})
-        } else {
-          this.props.push({name, default: raw_value})
-        }
-      }
-    } else {
-      if (!name.includes(':')) {
-        if (illegal_names.has(name)) {
-          throw new Error(`"${name}" is an illegal name, you might have missed a colon at the end of the name`)
-        }
-        this.attributes.push({name, value: this.parse_string(raw_value)})
+  handler(event: SaxET, data: SaxDetail): void {
+    switch (event) {
+      case SaxET.OpenTag:
+        this.on_opentag(data as SaxTag)
         return
-      }
-      const value = [build_clause(raw_value)]
-      if (name.startsWith('set:')) {
-        const set_name = name.substr(4).replace(/:+$/, '')
-        this.attributes.push({name: 'set', set_name, value})
-      } else if (name.startsWith('if:')) {
-        this.attributes.push({name: 'if', value})
-      } else if (name.startsWith('for:')) {
-        let for_names: string[]
-        if (name == 'for:') {
-          for_names = ['item']
-        } else {
-          for_names = name.substr(4).replace(/:+$/, '').split(':')
-          if (!for_names.every(n => n.length > 0)) {
-            throw new Error(`Empty names are not allowed in "for" expressions, got ${JSON.stringify(for_names)}`)
-          }
-        }
-        this.attributes.push({name: 'set', for_names, value})
-      } else {
-        if (/^[^:]:$/.test(name)) {
-          throw new Error(`Invalid name "${name}"`)
-        }
-        this.attributes.push({name: name.slice(0, -1), value})
-      }
+      case SaxET.CloseTag:
+        this.on_closetag()
+        return
+      case SaxET.Text:
+        this.on_text(data as SaxText)
+        return
+      case SaxET.Doctype:
+        this.on_doctype(data as SaxText)
+        return
+      case SaxET.Attribute:
+        // processed by on_opentag
+        return
+      default:
+        throw Error(`Internal Error: got unexpected type ${sax_type_name(event)}, ${JSON.stringify((data as any).toJSON())}`)
     }
   }
 
-  private on_opentag(tag: SaxesTagPlain): void {
-    let new_tag: TempElement | ComponentDefinition | null = null
-    const loc: FileLocation = {line: this.parser.line, col: this.tag_col}
-    if (this.is_component) {
-      const name: string | undefined = tag.attributes.name || tag.attributes.id
-      if (!name) {
-        throw Error('"name" or "id" is required for "<template>" elements when creating components')
-      } else if (!/^[A-Z][a-zA-Z0-9]+$/.test(name)) {
-        throw Error('component names must be CamelCase: start with a capital, contain only letters and numbers')
-      }
-      if (name in this.components) {
-        throw Error(`Component ${name} already defined`)
-      }
-
-      if (tag.isSelfClosing) {
-        // a ComponentReference
-        this.components[name] = {path: tag.attributes.path || null, used: false}
-      } else {
-        // a ComponentDefinition
-        this.components[name] = new_tag = {props: this.props, body: [], file: this.file_name, loc}
-      }
-      this.props = []
+  private on_opentag(tag: SaxTag): void {
+    const {name} = tag
+    let new_tag: TempElement | ComponentDefinition | null
+    if (name.toLowerCase() == 'template') {
+      new_tag = this.on_component(tag)
     } else {
-      const {name} = tag
-      let component: ComponentDefinition | ComponentReference | null = null
+      let component: ComponentDefinition | ComponentReference | undefined = undefined
       if (is_upper_case(name[0])) {
         // assume this is a component
-        component = this.components[name] || null
+        component = this.components[name]
         if (!component) {
           throw Error(
             `"${name}" appears to be component and is not defined or imported in this file. ` +
@@ -253,12 +238,12 @@ class FileParser {
           component.used = true
         }
       }
-      new_tag = {type: 'temp_element', name, loc, body: [], attributes: this.attributes}
+      const attributes = tag.attributes.map(a => this.prepare_attr(a))
+      new_tag = {type: 'temp_element', name, loc: pos2loc(tag.openStart), body: [], attributes}
       if (component) {
         new_tag.component = component
       }
 
-      this.attributes = []
       this.current.body.push(new_tag)
     }
 
@@ -277,21 +262,90 @@ class FileParser {
     }
   }
 
-  private on_doctype(doctype: string): void {
-    if (this.parents.length) {
-      throw Error('doctype can only be set on the root element')
+  private on_text(text: SaxText): void {
+    this.current.body.push(...this.parse_string(text.value))
+  }
+
+  private on_doctype(doctype: SaxText): void {
+    this.current.body.push({type: 'doctype', doctype: doctype.value})
+  }
+
+  private on_component(tag: SaxTag): ComponentDefinition | null {
+    let component_name: string | null = null
+    let path: string | null = null
+    const props: PropDef[] = []
+
+    for (const attr of tag.attributes) {
+      const name = attr.name.value
+      const raw_value = attr.value.value
+      if (name == 'name' || name == 'id') {
+        component_name = raw_value
+      } else if (name == 'path') {
+        path = raw_value
+      } else {
+        // TODO allow optional empty string via `foobar:optional=""`, prevent names ending with :
+        if (illegal_names.has(name)) {
+          throw new Error(`"${name}" is not allowed as a component property name`)
+        }
+        if (raw_value == '') {
+          props.push({name})
+        } else {
+          props.push({name, default: raw_value})
+        }
+      }
+    }
+
+    if (!component_name) {
+      throw Error('"name" or "id" is required for "<template>" elements when creating components')
+    } else if (!/^[A-Z][a-zA-Z0-9]+$/.test(component_name)) {
+      throw Error('component names must be CamelCase: start with a capital, contain only letters and numbers')
+    }
+    if (component_name in this.components) {
+      throw Error(`Component ${component_name} already defined`)
+    }
+
+    if (tag.selfClosing) {
+      // a ComponentReference
+      this.components[component_name] = {path, used: false}
+      return null
     } else {
-      this.current.body.push({type: 'doctype', doctype: doctype})
+      // a ComponentDefinition
+      return (this.components[component_name] = {props, body: [], file: this.file_name, loc: pos2loc(tag.openStart)})
     }
   }
 
-  private on_text(text: string): void {
-    this.current.body.push(...this.parse_string(text))
-  }
+  private prepare_attr(attr: SaxAttribute): AttributeDef {
+    const name = attr.name.value
+    const raw_value = attr.value.value
+    if (!name.includes(':')) {
+      if (illegal_names.has(name)) {
+        throw new Error(`"${name}" is an illegal name, you might have missed a colon at the end of the name`)
+      }
+      return {name, value: this.parse_string(raw_value)}
+    }
 
-  private on_comment(comment: string): void {
-    if (keep_comment_regex.test(comment)) {
-      this.current.body.push({type: 'comment', comment: comment.replace(keep_comment_regex, '$1')})
+    const value = [build_clause(raw_value)]
+    if (name.startsWith('set:')) {
+      const set_name = name.substr(4).replace(/:+$/, '')
+      return {name: 'set', set_name, value}
+    } else if (name.startsWith('if:')) {
+      return {name: 'if', value}
+    } else if (name.startsWith('for:')) {
+      let for_names: string[]
+      if (name == 'for:') {
+        for_names = ['item']
+      } else {
+        for_names = name.substr(4).replace(/:+$/, '').split(':')
+        if (!for_names.every(n => n.length > 0)) {
+          throw new Error(`Empty names are not allowed in "for" expressions, got ${JSON.stringify(for_names)}`)
+        }
+      }
+      return {name: 'set', for_names, value}
+    } else {
+      if (/^[^:]:$/.test(name)) {
+        throw new Error(`Invalid name "${name}"`)
+      }
+      return {name: name.slice(0, -1), value}
     }
   }
 
@@ -331,57 +385,31 @@ class FileParser {
   }
 }
 
-export type FileLoader = (path: string) => Promise<string>
+const pos2loc = (p: Position): FileLocation => ({line: p.line + 1, col: p.character + 1})
 
-class TemplateLoader {
-  base_file_path: string
-  file_loader: FileLoader
-
-  constructor(file_path: string, file_loader: FileLoader) {
-    this.base_file_path = file_path
-    this.file_loader = file_loader
-  }
-
-  async load(): Promise<TempChunk[]> {
-    const parser = await this.parse_file(this.base_file_path)
-    return parser.current.body
-  }
-
-  private async parse_file(file_path: string): Promise<FileParser> {
-    const xml = await this.file_loader(file_path)
-    const parser = new FileParser(file_path, xml)
-    await this.load_external_components(parser.components)
-    return parser
-  }
-
-  private async load_external_components(components: FileComponents): Promise<void> {
-    const req_components = Object.entries(components).filter(([, c]) => 'used' in c && c.used)
-    const req_files: {[path: string]: Set<string>} = {}
-    for (const [name, component] of req_components) {
-      const path = (component as ComponentReference).path || `${name}.html`
-      if (path in req_files) {
-        req_files[path].add(name)
-      } else {
-        req_files[path] = new Set([name])
-      }
-    }
-    const imported_components: FileComponents[] = await Promise.all(
-      Object.entries(req_files).map(pc => this.load_file_components(...pc)),
-    )
-    for (const new_file_components of imported_components) {
-      for (const [name, component] of Object.entries(new_file_components)) {
-        // modify the component in place to convert it from a ComponentReference to as ComponentDefinition
-        const new_comp: any = Object.assign(components[name], component)
-        delete new_comp.path
-        delete new_comp.used
-      }
-    }
-  }
-
-  private async load_file_components(file_path: string, components: Set<string>): Promise<FileComponents> {
-    const parser = await this.parse_file(file_path)
-    // TODO check all components are defined here and raise an error if not
-    return Object.fromEntries(Object.entries(parser.components).filter(([k]) => components.has(k)))
+function sax_type_name(event: SaxET): string {
+  if (event == SaxET.Text) {
+    return 'Text'
+  } else if (event == SaxET.ProcessingInstruction) {
+    return 'ProcessingInstruction'
+  } else if (event == SaxET.SGMLDeclaration) {
+    return 'SGMLDeclaration'
+  } else if (event == SaxET.Doctype) {
+    return 'Doctype'
+  } else if (event == SaxET.Comment) {
+    return 'Comment'
+  } else if (event == SaxET.OpenTagStart) {
+    return 'OpenTagStart'
+  } else if (event == SaxET.Attribute) {
+    return 'Attribute'
+  } else if (event == SaxET.OpenTag) {
+    return 'OpenTag'
+  } else if (event == SaxET.CloseTag) {
+    return 'CloseTag'
+  } else if (event == SaxET.Cdata) {
+    return 'Cdata'
+  } else {
+    return 'Unknown'
   }
 }
 

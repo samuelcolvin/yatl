@@ -1,4 +1,4 @@
-import {FileLoader, load_template} from './parse'
+import {FileLoader, load_template, PrepareParserWasm} from './parse'
 import {render_template} from './render'
 import {Context, Functions} from './expressions/evaluate'
 
@@ -6,6 +6,7 @@ async function render_string(
   template_string: string,
   context: Context,
   functions: Functions,
+  prepare_parser_wasm: PrepareParserWasm,
   file_loader?: FileLoader,
 ): Promise<string> {
   const root_path_name = 'template_string'
@@ -21,7 +22,7 @@ async function render_string(
       )
     }
   }
-  const template_elements = await load_template(root_path_name, _file_loader)
+  const template_elements = await load_template(root_path_name, _file_loader, prepare_parser_wasm)
   return await render_template(template_elements, context, functions)
 }
 

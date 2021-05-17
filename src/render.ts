@@ -34,13 +34,11 @@ export class Renderer {
     switch (chunk.type) {
       case 'text':
         return chunk.text
-      case 'comment':
-        return `<!--${chunk.comment}-->`
       case 'tag':
       case 'component':
         return await this.render_element(chunk, context)
       case 'doctype':
-        return `<!DOCTYPE${chunk.doctype}>`
+        return `<!DOCTYPE ${chunk.doctype}>`
       default:
         return await evaluate_as_str(chunk, context, this.functions)
     }
