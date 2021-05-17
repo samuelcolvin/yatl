@@ -1,5 +1,6 @@
+import {str2ab} from '../src'
 import {load_template, TemplateElement, FileLoader} from '../src/parse'
-import {str2array, load_wasm} from './utils'
+import {load_wasm} from './utils'
 import each from 'jest-each'
 
 const expected_elements: [string, TemplateElement[]][] = [
@@ -212,9 +213,9 @@ const expected_elements: [string, TemplateElement[]][] = [
 function get_loader(xml: string): FileLoader {
   return async (path: string) => {
     if (path == 'root.html') {
-      return str2array(xml)
+      return str2ab(xml)
     } else if (path == 'ExtComponent.html') {
-      return str2array('<template name="ExtComponent" foo="">foo {{ foo }}</template>')
+      return str2ab('<template name="ExtComponent" foo="">foo {{ foo }}</template>')
     } else {
       throw Error(`Unknown template "${path}"`)
     }

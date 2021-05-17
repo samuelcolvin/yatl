@@ -162,8 +162,6 @@ function compact_as_var(s: Record<string, string> | string): Var {
   }
 }
 
-export const str2array = (str: string) => new Uint8Array(Buffer.from(str, 'utf8'))
-
 const sax_wasm_buffer = fs.readFileSync(require.resolve('sax-wasm/lib/sax-wasm.wasm'))
 
 export async function load_wasm(parser: SAXParser): Promise<void> {

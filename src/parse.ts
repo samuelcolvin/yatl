@@ -214,7 +214,9 @@ class FileParser {
         // processed by on_opentag
         return
       default:
-        throw Error(`Internal Error: got unexpected type ${sax_type_name(event)}, ${JSON.stringify((data as any).toJSON())}`)
+        throw Error(
+          `Internal Error: got unexpected type ${sax_type_name(event)}, ${JSON.stringify((data as any).toJSON())}`,
+        )
     }
   }
 
