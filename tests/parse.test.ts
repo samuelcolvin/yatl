@@ -1,7 +1,6 @@
 import {load_template, TemplateElement, FileLoader} from '../src/parse'
+import {str2array, load_wasm} from './utils'
 import each from 'jest-each'
-import {SAXParser} from 'sax-wasm'
-import fs from 'fs'
 
 const expected_elements: [string, TemplateElement[]][] = [
   ['<div>hello</div>', [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}]],
@@ -210,10 +209,6 @@ const expected_elements: [string, TemplateElement[]][] = [
   ],
 ]
 
-function str2array(str: string) {
-  return new Uint8Array(Buffer.from(str, 'utf8'))
-}
-
 function get_loader(xml: string): FileLoader {
   return async (path: string) => {
     if (path == 'root.html') {
@@ -224,13 +219,6 @@ function get_loader(xml: string): FileLoader {
       throw Error(`Unknown template "${path}"`)
     }
   }
-}
-
-const saxPath = require.resolve('sax-wasm/lib/sax-wasm.wasm')
-const saxWasmBuffer = fs.readFileSync(saxPath)
-
-async function load_wasm(parser: SAXParser): Promise<void> {
-  await parser.prepareWasm(saxWasmBuffer)
 }
 
 describe('load_template', () => {

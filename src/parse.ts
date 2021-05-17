@@ -387,30 +387,13 @@ class FileParser {
 
 const pos2loc = (p: Position): FileLocation => ({line: p.line + 1, col: p.character + 1})
 
-function sax_type_name(event: SaxET): string {
-  if (event == SaxET.Text) {
-    return 'Text'
-  } else if (event == SaxET.ProcessingInstruction) {
-    return 'ProcessingInstruction'
-  } else if (event == SaxET.SGMLDeclaration) {
-    return 'SGMLDeclaration'
-  } else if (event == SaxET.Doctype) {
-    return 'Doctype'
-  } else if (event == SaxET.Comment) {
-    return 'Comment'
-  } else if (event == SaxET.OpenTagStart) {
-    return 'OpenTagStart'
-  } else if (event == SaxET.Attribute) {
-    return 'Attribute'
-  } else if (event == SaxET.OpenTag) {
-    return 'OpenTag'
-  } else if (event == SaxET.CloseTag) {
-    return 'CloseTag'
-  } else if (event == SaxET.Cdata) {
-    return 'Cdata'
-  } else {
-    return 'Unknown'
+const sax_type_name = (event: SaxET): string => {
+  for (const [name, value] of Object.entries(SaxET)) {
+    if (event == value) {
+      return name
+    }
   }
+  return 'Unknown'
 }
 
 function convert_element(el: TempElement): TagElement | ComponentElement {
