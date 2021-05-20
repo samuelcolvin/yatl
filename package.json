@@ -53,7 +53,7 @@
     }
   },
   "dependencies": {
-    "sax-wasm": "^2.0.0"
+    "sax-wasm": "^2.0.1"
   },
   "devDependencies": {
     "@types/dom-parser": "^0.1.1",

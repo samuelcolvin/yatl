@@ -3532,10 +3532,10 @@ sane@^4.0.3:
     minimist "^1.1.1"
     walker "~1.0.5"
 
-sax-wasm@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/sax-wasm/-/sax-wasm-2.0.0.tgz#be6d2d53bb1785fcb3e2f29624554cc7a4bea566"
-  integrity sha512-u2LwHmhmF0r8PlwRk4QPWRwAtdR4tH8NCYP1gsNRPOn1x137tf+DIoGfvBebL0BDYHP19exDmVGYoWBkv1mInw==
+sax-wasm@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/sax-wasm/-/sax-wasm-2.0.1.tgz#84876485a2423e62823bf32f574991cab17eddf0"
+  integrity sha512-+wANbY/nfW4qAZYl4dDTQm2INH3Sabd0Lha/iv4FDUI+khoiSUlbxe7qq/1LySrKBs5i8m7so/rHwZVZz/v/3g==
 
 saxes@^5.0.1:
   version "5.0.1"

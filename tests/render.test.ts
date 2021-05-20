@@ -9,8 +9,7 @@ const expected_rendered: [string, string][] = [
   ['<text>hello</text>', 'hello'],
   ['<div id="egg" class:="foo">xxx</div>', '<div id="egg" class="FOO">xxx</div>'],
   ['<input id="egg" class:="double_it(2)"/>', '<input id="egg" class="4"/>'],
-  // https://github.com/justinwilaby/sax-wasm/issues/43
-  // ['<!doctype html>\n<html>lower doctype</html>', '<!DOCTYPE html>\n<html>lower doctype</html>'],
+  ['<!doctype html>\n<html>lower doctype</html>', '<!DOCTYPE html>\n<html>lower doctype</html>'],
   ['<!-- this is a hidden comment -->\n\n<!-- and another -->', '\n\n\n\n'],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
   [
