@@ -352,14 +352,19 @@ class FileParser {
   }
 
   private parse_string(text: string): (Text | Clause)[] {
+    let chunk_end = text.indexOf('{{')
+    // if "{{" is not found in the rest of the string, indexOf returns -1
+    // this check is specifically to speed up the case where no '{{' is found
+    if (chunk_end == -1) {
+      if (text) {
+        return [{type: 'text', text}]
+      } else {
+        return []
+      }
+    }
     let chunk_start = 0
     const parts: (Text | Clause)[] = []
     while (true) {
-      // if "{{" is not found in the rest of the string, indexOf returns -1, so clause_start will equal 1
-      const chunk_end = text.indexOf('{{', chunk_start)
-      if (chunk_end == -1) {
-        break
-      }
       parts.push({type: 'text', text: text.substr(chunk_start, chunk_end - chunk_start)})
 
       let string_start: string | null = null
@@ -380,6 +385,10 @@ class FileParser {
           // end of this substring
           string_start = null
         }
+      }
+      chunk_end = text.indexOf('{{', chunk_start)
+      if (chunk_end == -1) {
+        break
       }
     }
     parts.push({type: 'text', text: text.slice(chunk_start)})
