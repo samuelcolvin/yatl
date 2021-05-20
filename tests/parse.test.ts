@@ -1,4 +1,6 @@
+import {str2ab} from '../src'
 import {load_template, TemplateElement, FileLoader} from '../src/parse'
+import {load_wasm} from './utils'
 import each from 'jest-each'
 
 const expected_elements: [string, TemplateElement[]][] = [
@@ -21,7 +23,7 @@ const expected_elements: [string, TemplateElement[]][] = [
   [
     '<!DOCTYPE html>\n<div>foobar</div>',
     [
-      {type: 'doctype', doctype: ' html'},
+      {type: 'doctype', doctype: 'html'},
       {type: 'text', text: '\n'},
       {
         type: 'tag',
@@ -156,13 +158,6 @@ const expected_elements: [string, TemplateElement[]][] = [
     [{type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]}],
   ],
   [
-    '<div>hello</div><!-- keep: a comment-->',
-    [
-      {type: 'tag', name: 'div', loc: {line: 1, col: 1}, body: [{type: 'text', text: 'hello'}]},
-      {type: 'comment', comment: ' a comment'},
-    ],
-  ],
-  [
     '<div if:="if_clause">hello</div>',
     [
       {
@@ -218,9 +213,9 @@ const expected_elements: [string, TemplateElement[]][] = [
 function get_loader(xml: string): FileLoader {
   return async (path: string) => {
     if (path == 'root.html') {
-      return xml
+      return str2ab(xml)
     } else if (path == 'ExtComponent.html') {
-      return '<template name="ExtComponent" foo="">foo {{ foo }}</template>'
+      return str2ab('<template name="ExtComponent" foo="">foo {{ foo }}</template>')
     } else {
       throw Error(`Unknown template "${path}"`)
     }
@@ -230,8 +225,8 @@ function get_loader(xml: string): FileLoader {
 describe('load_template', () => {
   each(expected_elements).test('expected_elements %j', async (xml, expected_elements) => {
     const loader = get_loader(xml)
-    // console.log(JSON.stringify(await load_template('root.html', loader), null, 2))
-    expect(await load_template('root.html', loader)).toStrictEqual(expected_elements)
+    // console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))
+    expect(await load_template('root.html', loader, load_wasm)).toStrictEqual(expected_elements)
   })
 
   // test('create-expected_elements', async () => {

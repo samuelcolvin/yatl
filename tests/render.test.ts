@@ -1,5 +1,6 @@
 import {render_string, Context, Functions} from '../src'
 import each from 'jest-each'
+import {load_wasm} from './utils'
 
 const expected_rendered: [string, string][] = [
   ['<div>hello</div>', '<div>hello</div>'],
@@ -9,10 +10,7 @@ const expected_rendered: [string, string][] = [
   ['<div id="egg" class:="foo">xxx</div>', '<div id="egg" class="FOO">xxx</div>'],
   ['<input id="egg" class:="double_it(2)"/>', '<input id="egg" class="4"/>'],
   ['<!doctype html>\n<html>lower doctype</html>', '<!DOCTYPE html>\n<html>lower doctype</html>'],
-  [
-    '<!-- this is a hidden comment -->\n\n<!-- keep: this is a kept comment -->',
-    '\n\n<!-- this is a kept comment -->',
-  ],
+  ['<!-- this is a hidden comment -->\n\n<!-- and another -->', '\n\n\n\n'],
   ['<div set:spam:="pie()">{{ spam }}</div>', '<div>apple pie</div>'],
   [
     '<div for:thing:="an_array" for_join="">{{ thing }}</div>',
@@ -60,8 +58,7 @@ const expected_rendered: [string, string][] = [
     `,
   ],
   [
-    `
-<!doctype html>
+    `<!DOCTYPE html>
 <html lang="en" class="no-js">
   <head>
     <meta charset="utf-8"/>
@@ -111,7 +108,7 @@ const test_functions: Functions = {
 
 describe('render', () => {
   each(expected_rendered).test('expected_rendered %s', async (template, expected_output) => {
-    const output = await render_string(template, test_context, test_functions)
+    const output = await render_string(template, test_context, test_functions, load_wasm)
     // console.log('output:', output)
     // console.log('output: %j', output)
     expect(output).toEqual(expected_output)

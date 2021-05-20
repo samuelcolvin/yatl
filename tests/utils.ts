@@ -1,5 +1,7 @@
 import type {Token, TokenType} from '../src/expressions/tokenize'
 import type {MixedElement, Clause, Var} from '../src/expressions/build'
+import fs from 'fs'
+import {SAXParser} from 'sax-wasm'
 
 export const token_as_compact = (t: Token): string => (t.value != undefined ? `${t.type}:${t.value}` : t.type)
 
@@ -158,4 +160,10 @@ function compact_as_var(s: Record<string, string> | string): Var {
     symbol: key.substr(4),
     chain,
   }
+}
+
+const sax_wasm_buffer = fs.readFileSync(require.resolve('sax-wasm/lib/sax-wasm.wasm'))
+
+export async function load_wasm(parser: SAXParser): Promise<void> {
+  await parser.prepareWasm(sax_wasm_buffer)
 }
