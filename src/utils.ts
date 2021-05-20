@@ -32,7 +32,7 @@ export const smart_typeof = (obj: any): SmartType => {
 
 export const has_property = (obj: any, key: string): boolean => Object.prototype.hasOwnProperty.call(obj, key)
 
-export const is_object = (v: any): boolean => smart_typeof(v) == 'object'
+export const is_object = (v: any): boolean => smart_typeof(v) == SmartType.Object
 
 export function smart_equals(a: Result, b: Result): boolean {
   /**
