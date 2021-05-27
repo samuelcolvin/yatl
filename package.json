@@ -17,7 +17,8 @@
     "prepublish": "tsc",
     "test": "jest --config jestconfig.json --verbose",
     "format": "prettier --write '*.json' 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
-    "lint": "eslint --max-warnings=0 src && prettier --check '*.json' 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'"
+    "lint": "eslint --max-warnings=0 src && prettier --check '*.json' 'src/**/*.{js,ts}' 'tests/**/*.{js,ts}'",
+    "all": "yarn lint && yarn test"
   },
   "keywords": [
     "template",

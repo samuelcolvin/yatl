@@ -1,3 +1,4 @@
+import {async_map, async_every, async_reduce, async_any} from '../async_iter'
 import {has_property, is_object, shouldnt_happen, smart_equals, smart_typeof, SmartType} from '../utils'
 import type {ChainElement, Clause, Func, Modified, Operation, OperatorType, Var} from './build'
 
@@ -210,7 +211,7 @@ export default class Evaluator {
   private op_and = async (value: Result, args: Clause[]): Promise<boolean> =>
     !!(value && (await async_every(args, this.evaluate)))
   private op_or = async (value: Result, args: Clause[]): Promise<boolean> =>
-    !!(value || !(await async_every(args, async c => !(await this.evaluate(c)))))
+    !!(value || (await async_any(args, this.evaluate)))
 
   private async modifiers(mod: Modified): Promise<Result> {
     if (mod.mod == '!') {
@@ -280,31 +281,4 @@ export default class Evaluator {
     }
     return value
   }
-}
-
-// TODO, use generics
-async function async_map<A, R extends Result>(items: A[], func: (i: A) => Promise<R>): Promise<R[]> {
-  const result: R[] = []
-  for (const item of items) {
-    result.push(await func(item))
-  }
-  return result
-}
-
-// TODO, use generics
-async function async_reduce<A extends Result, B>(items: B[], func: (a: A, b: B) => Promise<A>, value: A): Promise<A> {
-  for (const item of items) {
-    value = await func(value, item)
-  }
-  return value
-}
-
-// TODO, use generics
-async function async_every<A>(items: A[], func: (i: A) => Promise<any>): Promise<boolean> {
-  for (const item of items) {
-    if (!(await func(item))) {
-      return false
-    }
-  }
-  return true
 }
