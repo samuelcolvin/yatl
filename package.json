@@ -56,7 +56,6 @@
     "sax-wasm": "^2.0.1"
   },
   "devDependencies": {
-    "@types/dom-parser": "^0.1.1",
     "@types/jest": "^26.0.22",
     "@typescript-eslint/eslint-plugin": "^4.20.0",
     "@typescript-eslint/parser": "^4.20.0",

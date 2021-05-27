@@ -572,11 +572,6 @@
   dependencies:
     "@babel/types" "^7.3.0"
 
-"@types/dom-parser@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@types/dom-parser/-/dom-parser-0.1.1.tgz#e72d5b2846ce8c2b48b12314c73af458fcbde5df"
-  integrity sha512-/kFdfefUzcrPclXoo86+31GN6Ww/UhzrC4U7eiW/M6mTNOfzgEl8etv7AtmkoelpYDE4EoUAwZIt5x1D693CaA==
-
 "@types/graceful-fs@^4.1.2":
   version "4.1.5"
   resolved "https://registry.yarnpkg.com/@types/graceful-fs/-/graceful-fs-4.1.5.tgz#21ffba0d98da4350db64891f92a9e5db3cdb4e15"
