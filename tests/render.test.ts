@@ -41,6 +41,7 @@ const expected_rendered: [string, string][] = [
   ['<span for:x:y="array_array" for_join="">{{ x }}.{{ y }}</span>', '<span>1.2</span><span>10.20</span>'],
   ['<span for:x:y="obj_array" for_join="">{{ x }}.{{ y }}</span>', '<span>3.4</span><span>5.6</span>'],
   ['<fragment for:x="simple_object" for_join=""> {{ x }}</fragment>', ' apple banana carrot'],
+  ['<>foobar</>', 'foobar'],
   [
     `
 <template name="MyComponent" foo="" bar="default-bar">

@@ -199,10 +199,10 @@ class FileParser {
   handler(event: SaxET, data: SaxDetail): void {
     switch (event) {
       case SaxET.OpenTag:
-        this.on_opentag(data as SaxTag)
+        this.on_open_tag(data as SaxTag)
         return
       case SaxET.CloseTag:
-        this.on_closetag()
+        this.on_close_tag()
         return
       case SaxET.Text:
         this.on_text(data as SaxText)
@@ -211,7 +211,7 @@ class FileParser {
         this.on_doctype(data as SaxText)
         return
       case SaxET.Attribute:
-        // processed by on_opentag
+        // processed by on_open_tag
         return
       default:
         throw Error(
@@ -220,14 +220,16 @@ class FileParser {
     }
   }
 
-  private on_opentag(tag: SaxTag): void {
-    const {name} = tag
+  private on_open_tag(tag: SaxTag): void {
+    let {name} = tag
     let new_tag: TempElement | ComponentDefinition | null
     if (name.toLowerCase() == 'template') {
       new_tag = this.on_component(tag)
     } else {
       let component: ComponentDefinition | ComponentReference | undefined = undefined
-      if (is_upper_case(name[0])) {
+      if (name == '') {
+        name = 'fragment'
+      } else if (is_upper_case(name[0])) {
         // assume this is a component
         component = this.components[name]
         if (!component) {
@@ -255,7 +257,7 @@ class FileParser {
     }
   }
 
-  private on_closetag(): void {
+  private on_close_tag(): void {
     const parent = this.parents.pop()
     if (parent) {
       this.current = parent

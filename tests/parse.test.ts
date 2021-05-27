@@ -208,6 +208,29 @@ const expected_elements: [string, TemplateElement[]][] = [
       },
     ],
   ],
+  [
+    '<div class={foobar}/>',
+    [
+      {
+        type: 'tag',
+        name: 'div',
+        loc: {line: 1, col: 1},
+        attributes: [{name: 'class', value: [{type: 'text', text: 'foobar'}]}],
+      },
+    ],
+  ],
+  [
+    '<>empty-fragment</>',
+    [
+      {
+        type: 'tag',
+        name: 'fragment',
+        fragment: true,
+        loc: {line: 1, col: 1},
+        body: [{type: 'text', text: 'empty-fragment'}],
+      },
+    ],
+  ],
 ]
 
 function get_loader(xml: string): FileLoader {
@@ -225,7 +248,7 @@ function get_loader(xml: string): FileLoader {
 describe('load_template', () => {
   each(expected_elements).test('expected_elements %j', async (xml, expected_elements) => {
     const loader = get_loader(xml)
-    // console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))
+    console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))
     expect(await load_template('root.html', loader, load_wasm)).toStrictEqual(expected_elements)
   })
 
