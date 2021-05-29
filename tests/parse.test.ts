@@ -1,5 +1,5 @@
-import {str2ab} from '../src'
-import {load_template, TemplateElement, FileLoader} from '../src/parse'
+import {str2stream, FileLoader} from '../src'
+import {load_template, TemplateElement} from '../src/parse'
 import {load_wasm} from './utils'
 import each from 'jest-each'
 
@@ -236,9 +236,9 @@ const expected_elements: [string, TemplateElement[]][] = [
 function get_loader(xml: string): FileLoader {
   return async (path: string) => {
     if (path == 'root.html') {
-      return str2ab(xml)
+      return str2stream(xml)
     } else if (path == 'ExtComponent.html') {
-      return str2ab('<template name="ExtComponent" foo="">foo {{ foo }}</template>')
+      return str2stream('<template name="ExtComponent" foo="">foo {{ foo }}</template>')
     } else {
       throw Error(`Unknown template "${path}"`)
     }
@@ -248,7 +248,7 @@ function get_loader(xml: string): FileLoader {
 describe('load_template', () => {
   each(expected_elements).test('expected_elements %j', async (xml, expected_elements) => {
     const loader = get_loader(xml)
-    console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))
+    // console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))
     expect(await load_template('root.html', loader, load_wasm)).toStrictEqual(expected_elements)
   })
 

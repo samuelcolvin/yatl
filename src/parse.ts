@@ -51,7 +51,7 @@ export interface ComponentElement {
 }
 
 export type TemplateElement = DocType | Text | Clause | TagElement | ComponentElement
-export type FileLoader = (path: string) => Promise<Uint8Array>
+export type FileLoader = (path: string) => Promise<ReadableStream>
 export type PrepareParserWasm = (parser: SAXParser) => Promise<void>
 
 export async function load_template(
@@ -86,11 +86,19 @@ class TemplateLoader {
   private async parse_file(file_path: string): Promise<FileParser> {
     const file_parser = new FileParser(file_path)
     this.sax_parser.eventHandler = file_parser.handler
-    const xml = await this.file_loader(file_path)
-    this.sax_parser.write(xml)
-    this.sax_parser.end()
-    await this.load_external_components(file_parser.components)
-    return file_parser
+    const stream = await this.file_loader(file_path)
+    const reader = stream.getReader()
+
+    while (true) {
+      const {done, value} = await reader.read()
+      if (done) {
+        this.sax_parser.end()
+        await this.load_external_components(file_parser.components)
+        return file_parser
+      } else {
+        this.sax_parser.write(value as Uint8Array)
+      }
+    }
   }
 
   private async load_external_components(components: FileComponents): Promise<void> {

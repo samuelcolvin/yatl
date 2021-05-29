@@ -1,6 +1,6 @@
 {
   "name": "edgerender-yatl",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Yet Another Template Language",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
