@@ -1,4 +1,5 @@
 {
+  "preset": "jest-puppeteer",
   "transform": {
     "^.+\\.(t|j)sx?$": "ts-jest"
   },
