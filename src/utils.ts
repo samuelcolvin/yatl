@@ -109,3 +109,27 @@ export function remove_undefined<T extends Record<any, any>>(obj: T): T {
   }
   return obj
 }
+
+function str2ab(str: string): Uint8Array {
+  // this will required util.TextEncoder to be added to "global" in node, see tests
+  return new TextEncoder().encode(str)
+}
+
+export function str2stream(str: string): ReadableStream {
+  // the object returned here smells roughly like a ReadableStream - enough to satisfy parse.ts
+  return {
+    getReader: () => {
+      let done = false
+      return {
+        read: async (): Promise<{done: boolean; value?: Uint8Array}> => {
+          if (done) {
+            return {done: true}
+          } else {
+            done = true
+            return {done: false, value: str2ab(str)}
+          }
+        },
+      }
+    },
+  } as any
+}

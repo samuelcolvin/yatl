@@ -1,7 +1,7 @@
 import {FileLoader, load_template, PrepareParserWasm} from './parse'
 import {render_template} from './render'
 import {Context, Functions} from './expressions/evaluate'
-import {str2stream} from './streams'
+import {str2stream} from './utils'
 
 type LaxFileLoader = (path: string) => Promise<ReadableStream | string>
 
