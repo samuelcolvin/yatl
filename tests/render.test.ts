@@ -1,3 +1,4 @@
+import {TextEncoder} from 'util'
 import {render_string, Context, Functions} from '../src'
 import each from 'jest-each'
 import {load_wasm} from './utils'
@@ -108,6 +109,11 @@ const test_functions: Functions = {
 }
 
 describe('render', () => {
+  beforeEach(() => {
+    Object.assign(global, {TextEncoder})
+    jest.resetModules()
+  })
+
   each(expected_rendered).test('expected_rendered %s', async (template, expected_output) => {
     const output = await render_string(template, test_context, test_functions, load_wasm)
     // console.log('output:', output)

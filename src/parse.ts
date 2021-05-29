@@ -96,7 +96,7 @@ class TemplateLoader {
         await this.load_external_components(file_parser.components)
         return file_parser
       } else {
-        this.sax_parser.write(value as Uint8Array)
+        this.sax_parser.write(value)
       }
     }
   }

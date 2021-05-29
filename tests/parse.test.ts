@@ -1,3 +1,4 @@
+import {TextEncoder} from 'util'
 import {str2stream, FileLoader} from '../src'
 import {load_template, TemplateElement} from '../src/parse'
 import {load_wasm} from './utils'
@@ -246,6 +247,11 @@ function get_loader(xml: string): FileLoader {
 }
 
 describe('load_template', () => {
+  beforeEach(() => {
+    Object.assign(global, {TextEncoder})
+    jest.resetModules()
+  })
+
   each(expected_elements).test('expected_elements %j', async (xml, expected_elements) => {
     const loader = get_loader(xml)
     // console.log(JSON.stringify(await load_template('root.html', loader, load_wasm), null, 2))

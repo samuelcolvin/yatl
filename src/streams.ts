@@ -1,12 +1,6 @@
 function str2ab(str: string): Uint8Array {
-  // should work with both browsers and node, might not be fast but shouldn't be used if performance matters
-  const buf = new ArrayBuffer(str.length)
-  const array = new Uint8Array(buf)
-  const str_length = str.length
-  for (let i = 0; i < str_length; i++) {
-    array[i] = str.charCodeAt(i)
-  }
-  return array
+  // this will required util.TextEncoder to be added to "global" in node, see tests
+  return new TextEncoder().encode(str)
 }
 
 interface ReadResult {
